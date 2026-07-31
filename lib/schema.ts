@@ -39,3 +39,18 @@ export const sessions = pgTable('sessions', {
   createdAt: bigint('created_at', { mode: 'number' }).notNull(),
   lastSeenAt: bigint('last_seen_at', { mode: 'number' }).notNull()
 }, table => [uniqueIndex('sessions_token_idx').on(table.tokenHash)])
+
+export const estimateApprovalLinks = pgTable('estimate_approval_links', {
+  id: text('id').primaryKey(),
+  shopId: text('shop_id').notNull(),
+  orderId: text('order_id').notNull(),
+  tokenHash: text('token_hash').notNull(),
+  status: text('status').notNull(),
+  createdBy: text('created_by').notNull(),
+  expiresAt: bigint('expires_at', { mode: 'number' }).notNull(),
+  createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+  respondedAt: bigint('responded_at', { mode: 'number' })
+}, table => [
+  uniqueIndex('estimate_approval_links_token_idx').on(table.tokenHash),
+  index('estimate_approval_links_order_idx').on(table.shopId, table.orderId)
+])
