@@ -38,6 +38,7 @@ function validate(kind: Kind, record: Row, all: Awaited<ReturnType<typeof shopRo
   if (kind === 'vehicles') {
     if (!find(all, 'customers', record.customerId)) throw new Error('Select an existing customer for this vehicle.')
     requiredText('make', 'Vehicle make'); requiredText('model', 'Vehicle model')
+    if (record.vin && !/^[A-HJ-NPR-Z0-9]{17}$/i.test(String(record.vin))) throw new Error('VIN must contain 17 valid characters (I, O and Q are not used).')
   }
   if (kind === 'appointments' || kind === 'orders') {
     const customer = find(all, 'customers', record.customerId)
