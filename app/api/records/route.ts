@@ -59,6 +59,20 @@ function validate(kind: Kind, record: Row, all: Awaited<ReturnType<typeof shopRo
     requiredText('sku', 'SKU'); requiredText('name', 'Part name')
     if (Number(record.onHand) < 0 || Number(record.cost) < 0 || Number(record.price) < 0) throw new Error('Inventory quantities and prices cannot be negative.')
   }
+  if (kind === 'cannedJobs') {
+    requiredText('name', 'Service name'); requiredText('category', 'Job category')
+    for (const key of ['laborHours','laborRate','partsCost','partsPrice','packagePrice']) if (Number(record[key] || 0) < 0) throw new Error('Canned-job pricing cannot be negative.')
+  }
+  if (kind === 'pricingRules') {
+    requiredText('name', 'Pricing-rule name')
+    if (!['Labor rate','Parts matrix','Shop fee'].includes(String(record.type))) throw new Error('Select a valid pricing-rule type.')
+    for (const key of ['minCost','maxCost','markupPercent','amount','cap']) if (Number(record[key] || 0) < 0) throw new Error('Pricing-rule values cannot be negative.')
+    if (record.type === 'Parts matrix' && Number(record.maxCost) < Number(record.minCost)) throw new Error('Maximum cost must be at least the minimum cost.')
+  }
+  if (kind === 'warranties') {
+    requiredText('name', 'Warranty name'); requiredText('terms', 'Warranty terms')
+    if (Number(record.months || 0) < 0 || Number(record.miles || 0) < 0) throw new Error('Warranty duration cannot be negative.')
+  }
   if (kind === 'invoices') {
     if (!find(all, 'customers', record.customerId)) throw new Error('Invoice customer was not found.')
     if (record.orderId && !find(all, 'orders', record.orderId)) throw new Error('Invoice repair order was not found.')

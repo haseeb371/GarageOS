@@ -1,5 +1,5 @@
 export type RecordData = Record<string, unknown> & { id:string }
-export const kinds = ['customers','vehicles','appointments','orders','inspections','inventory','vendors','purchaseOrders','invoices','payments','timeEntries','campaigns','reviews','users','shops','integrations'] as const
+export const kinds = ['customers','vehicles','appointments','orders','cannedJobs','pricingRules','warranties','inspections','inventory','vendors','purchaseOrders','invoices','payments','timeEntries','campaigns','reviews','users','shops','integrations'] as const
 export type Kind = typeof kinds[number]
 export const roles = {
   Owner: ['*'],
