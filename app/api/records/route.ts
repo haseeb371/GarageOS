@@ -82,6 +82,16 @@ function validate(kind: Kind, record: Row, all: Awaited<ReturnType<typeof shopRo
     if (!Number.isFinite(balance) || balance < 0 || balance > total) throw new Error('Invoice balance must be between zero and the invoice total.')
     if (balance === 0 && record.status !== 'Paid' && record.status !== 'Void') throw new Error('An unpaid invoice must have an outstanding balance.')
   }
+  if (kind === 'assignments') {
+    const order = find(all, 'orders', record.orderId)
+    if (!order) throw new Error('Select an existing repair order.')
+    if (!(Array.isArray(order.jobs) && order.jobs.some((job: Row) => job.id === record.jobId))) throw new Error('Select a job from the repair order.')
+    requiredText('technician', 'Technician')
+    if (!['Assigned','In progress','Paused','Completed'].includes(String(record.status))) throw new Error('Invalid assignment status.')
+    if (Number(record.estimatedHours || 0) < 0 || Number(record.accumulatedMinutes || 0) < 0) throw new Error('Assignment time cannot be negative.')
+    if (record.status === 'In progress' && !record.timerStartedAt) throw new Error('An active assignment requires a timer start time.')
+    if (record.status !== 'In progress' && record.timerStartedAt) throw new Error('Only an active assignment may have a running timer.')
+  }
 }
 
 export async function POST(req: NextRequest) {
