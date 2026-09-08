@@ -55,7 +55,7 @@ export async function GET(request: Request) {
     )
   ]
 
-  const filename = `autogragify-accounting-${from || 'all'}-to-${to || 'all'}.csv`
+  const filename = `autogaragify-accounting-${from || 'all'}-to-${to || 'all'}.csv`
   return new Response(csv.join('\n'), {
     headers: {
       'content-type': 'text/csv; charset=utf-8',

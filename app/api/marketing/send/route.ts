@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
 
   const segment = declinedWorkSegment(data.orders || [], data.customers || [], data.vehicles || [])
   const preview = campaignAudiencePreview(campaign, data.customers || [], segment)
-  const shop = (data.shops || [])[0] || { name: 'AutoGragify' }
+  const shop = (data.shops || [])[0] || { name: 'AutoGaragify' }
 
   if (parsed.data.dryRun) {
     return NextResponse.json({
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
       const to = normalizePhone(row.phone)
       const result = await sendSms({
         to,
-        body: `${shop.name || 'AutoGragify'}: ${bodyText}`
+        body: `${shop.name || 'AutoGaragify'}: ${bodyText}`
       })
       if (result.sandbox) mode = 'sandbox'
       if (result.ok) {
@@ -123,10 +123,10 @@ export async function POST(req: NextRequest) {
       continue
     }
 
-    const html = `<p>${bodyText.replaceAll('\n', '<br/>')}</p><p style="color:#63716b;font-size:13px">${shop.name || 'AutoGragify'} · Reply to this email or call the shop to schedule.</p><p style="color:#63716b;font-size:12px">Reply STOP-equivalent: ask the shop to opt you out of marketing email.</p>`
+    const html = `<p>${bodyText.replaceAll('\n', '<br/>')}</p><p style="color:#63716b;font-size:13px">${shop.name || 'AutoGaragify'} · Reply to this email or call the shop to schedule.</p><p style="color:#63716b;font-size:12px">Reply STOP-equivalent: ask the shop to opt you out of marketing email.</p>`
     const result = await sendEmail({
       to: row.email,
-      subject: `${shop.name || 'AutoGragify'} · ${campaign.name || 'Service follow-up'}`,
+      subject: `${shop.name || 'AutoGaragify'} · ${campaign.name || 'Service follow-up'}`,
       html,
       text: bodyText
     })

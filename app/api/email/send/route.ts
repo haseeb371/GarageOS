@@ -39,15 +39,15 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return responseError(parsed.error.issues[0]?.message || 'Invalid email request.')
 
   const data = await shopData(user.shopId)
-  const shop = (data.shops || [])[0] || { id: user.shopId, name: 'AutoGragify' }
+  const shop = (data.shops || [])[0] || { id: user.shopId, name: 'AutoGaragify' }
 
   if (parsed.data.type === 'test') {
     const to = parsed.data.to || user.email
     if (!to) return responseError('Sign in with an account that has an email, or pass to.')
     const result = await sendEmail({
       to,
-      subject: `AutoGragify test email · ${shop.name || 'Shop'}`,
-      html: `<p>This is a live test from <strong>AutoGragify</strong>.</p><p>Shop: ${shop.name || user.shopId}</p><p>If you received this, Resend is configured correctly.</p>`
+      subject: `AutoGaragify test email · ${shop.name || 'Shop'}`,
+      html: `<p>This is a live test from <strong>AutoGaragify</strong>.</p><p>Shop: ${shop.name || user.shopId}</p><p>If you received this, Resend is configured correctly.</p>`
     })
     if (!result.ok) return responseError(result.error, result.sandbox ? 503 : 400)
     return NextResponse.json({ ok: true, id: result.id, to, mode: 'live' })
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
 
     const result = await sendEmail({
       to,
-      subject: `Invoice ${invoice.id} from ${locationShop.name || 'AutoGragify'}`,
+      subject: `Invoice ${invoice.id} from ${locationShop.name || 'AutoGaragify'}`,
       html
     })
 
@@ -126,11 +126,11 @@ export async function POST(req: NextRequest) {
     const lines = items
       .map(item => `<li><strong>${item.name}</strong> (${item.sku}): ${item.onHand} on hand, reorder at ${item.reorderAt}</li>`)
       .join('')
-    const html = `<p>Low-stock alert from <strong>${shop.name || 'AutoGragify'}</strong>${locationLabel ? ` · ${locationLabel}` : ''}.</p><ul>${lines}</ul>`
+    const html = `<p>Low-stock alert from <strong>${shop.name || 'AutoGaragify'}</strong>${locationLabel ? ` · ${locationLabel}` : ''}.</p><ul>${lines}</ul>`
 
     const result = await sendEmail({
       to: unique,
-      subject: `Low stock · ${items.length} part${items.length === 1 ? '' : 's'} · ${shop.name || 'AutoGragify'}`,
+      subject: `Low stock · ${items.length} part${items.length === 1 ? '' : 's'} · ${shop.name || 'AutoGaragify'}`,
       html
     })
 

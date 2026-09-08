@@ -69,14 +69,14 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return responseError(parsed.error.issues[0]?.message || 'Invalid SMS request.')
 
   const data = await shopData(user.shopId)
-  const shop = (data.shops || [])[0] || { name: 'AutoGragify' }
+  const shop = (data.shops || [])[0] || { name: 'AutoGaragify' }
 
   if (parsed.data.type === 'test') {
     const to = normalizePhone(parsed.data.to || '')
     if (!to) return responseError('Enter a phone number with country code, e.g. +15551234567.')
     const result = await sendSms({
       to,
-      body: `AutoGragify test SMS from ${shop.name || 'your shop'}. Twilio is connected.`
+      body: `AutoGaragify test SMS from ${shop.name || 'your shop'}. Twilio is connected.`
     })
     await logSmsActivity(
       user.shopId,
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
 
     const vehicle = (data.vehicles || []).find(row => row.id === reminder.vehicleId)
     const vehicleLabel = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : 'your vehicle'
-    const body = `${shop.name || 'AutoGragify'}: Reminder for ${customer.name || 'customer'} — ${reminder.service} is due${reminder.dueDate ? ` on ${reminder.dueDate}` : ''}${reminder.dueMileage ? ` / ${reminder.dueMileage} mi` : ''} (${vehicleLabel}). Reply or call to book.`
+    const body = `${shop.name || 'AutoGaragify'}: Reminder for ${customer.name || 'customer'} — ${reminder.service} is due${reminder.dueDate ? ` on ${reminder.dueDate}` : ''}${reminder.dueMileage ? ` / ${reminder.dueMileage} mi` : ''} (${vehicleLabel}). Reply or call to book.`
 
     const result = await sendSms({ to, body })
     const stamp = new Date().toISOString()
@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
         continue
       }
       const to = normalizePhone(row.phone)
-      const body = `${shop.name || 'AutoGragify'}: ${renderTemplate(template, row.name)}`
+      const body = `${shop.name || 'AutoGaragify'}: ${renderTemplate(template, row.name)}`
       const result = await sendSms({ to, body })
       if (result.ok) sentTo.push(to)
       else failures.push(`${row.name}: ${result.error}`)

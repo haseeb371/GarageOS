@@ -305,7 +305,7 @@ async function pushWebhook(
         ...(resolved.webhookSecret ? { Authorization: `Bearer ${resolved.webhookSecret}` } : {})
       },
       body: JSON.stringify({
-        source: 'AutoGragify',
+        source: 'AutoGaragify',
         shopId: input.shopId,
         shopName: input.shopName,
         from: input.from || null,
@@ -406,7 +406,7 @@ async function pushQuickBooks(input: {
     },
     body: JSON.stringify({
       DocNumber: `GO-${Date.now().toString().slice(-8)}`,
-      PrivateNote: `AutoGragify sync · ${input.shopName} · ${input.from || 'all'} to ${input.to || 'all'}`,
+      PrivateNote: `AutoGaragify sync · ${input.shopName} · ${input.from || 'all'} to ${input.to || 'all'}`,
       Line: qboLines
     })
   })
@@ -498,7 +498,7 @@ async function pushXero(input: {
     body: JSON.stringify({
       ManualJournals: [
         {
-          Narration: `AutoGragify sync · ${input.shopName} · ${input.from || 'all'} to ${input.to || 'all'}`,
+          Narration: `AutoGaragify sync · ${input.shopName} · ${input.from || 'all'} to ${input.to || 'all'}`,
           Date: (input.to || new Date().toISOString().slice(0, 10)),
           Status: 'POSTED',
           JournalLines: journalLines

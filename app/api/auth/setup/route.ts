@@ -12,7 +12,7 @@ export async function POST(req:Request){
   await ensureSchema()
   const rl=await rateLimitByIp('setup',5,60_000)
   if(!rl.ok)return NextResponse.json({error:'Too many setup attempts. Wait a minute and try again.'},{status:429,headers:{'Retry-After':String(Math.ceil((rl.resetAt-Date.now())/1000))}})
-  if((await db.select().from(authUsers).limit(1))[0])return NextResponse.json({error:'AutoGragify is already configured. Sign in instead.'},{status:409})
+  if((await db.select().from(authUsers).limit(1))[0])return NextResponse.json({error:'AutoGaragify is already configured. Sign in instead.'},{status:409})
   const p=input.safeParse(await req.json())
   if(!p.success)return NextResponse.json({error:p.error.issues[0]?.message||'Please check all fields.'},{status:400})
   const n=Date.now(),uid=randomUUID(),sid=randomUUID()
@@ -29,6 +29,6 @@ export async function POST(req:Request){
   return NextResponse.json({ok:true})
  }catch(error){
   console.error('Workspace setup failed',error)
-  return NextResponse.json({error:'Workspace creation failed. Please restart AutoGragify and try again.'},{status:500})
+  return NextResponse.json({error:'Workspace creation failed. Please restart AutoGaragify and try again.'},{status:500})
  }
 }

@@ -21,7 +21,7 @@ export async function GET() {
       ? webhook.isZapierCatchHook
         ? `Zapier Catch Hook connected (${webhook.host}). Sync posts invoice/payment journal JSON. If you see 404 “unsubscribe”, recreate and publish the hook.`
         : `Webhook connected (${webhook.host}). Sync posts invoice/payment journal JSON.`
-      : webhook.error || 'Set ACCOUNTING_WEBHOOK_URL in .env.local, then restart AutoGragify.',
+      : webhook.error || 'Set ACCOUNTING_WEBHOOK_URL in .env.local, then restart AutoGaragify.',
     quickbooks: configured
       ? 'QuickBooks Online credentials are present. Sync creates a journal entry for invoices and payments.'
       : 'Add QUICKBOOKS_ACCESS_TOKEN, QUICKBOOKS_REALM_ID, and AR/income/deposit account IDs, then restart.',
@@ -47,7 +47,7 @@ export async function GET() {
         'Create Zap → Trigger: Webhooks by Zapier → Catch Hook',
         'Copy Custom webhook URL into .env.local as ACCOUNTING_WEBHOOK_URL',
         'Set ACCOUNTING_PROVIDER="webhook"',
-        'Restart AutoGragify',
+        'Restart AutoGaragify',
         'Reports → Sync accounting (or Operations → Sync this month)',
         'In Zapier: Test trigger → Publish'
       ],

@@ -12,6 +12,6 @@ export async function GET() {
     mode,
     message: configured
       ? `Stripe Checkout is ready (${mode} mode). Use Pay with card on an open invoice.`
-      : 'Add STRIPE_SECRET_KEY to .env.local (use sk_test_… for safe testing), then restart AutoGragify.'
+      : 'Add STRIPE_SECRET_KEY to .env.local (use sk_test_… for safe testing), then restart AutoGaragify.'
   })
 }

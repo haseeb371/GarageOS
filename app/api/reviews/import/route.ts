@@ -18,7 +18,7 @@ export async function GET() {
   return new NextResponse(reviewCsvTemplate(), {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': 'attachment; filename="autogragify-reviews-import-template.csv"'
+      'Content-Disposition': 'attachment; filename="autogaragify-reviews-import-template.csv"'
     }
   })
 }

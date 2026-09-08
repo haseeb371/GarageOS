@@ -18,7 +18,7 @@ export function buildLowStockAlertLog(items: Row[], shopName: string, locationLa
     itemName: `${items.length} low-stock part${items.length === 1 ? '' : 's'}`,
     quantity: items.length,
     note: [
-      `Sandbox email from ${shopName || 'AutoGragify'} would notify shop staff${locationSuffix}:`,
+      `Sandbox email from ${shopName || 'AutoGaragify'} would notify shop staff${locationSuffix}:`,
       ...items.map(
         item =>
           `${item.name} (${item.sku}): ${item.onHand} on hand, reorder at ${item.reorderAt}`

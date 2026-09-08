@@ -1,20 +1,20 @@
-# AutoGragify
+# AutoGaragify
 
-AutoGragify is an original, locally hosted shop-management website for independent automotive repair businesses. It models common industry workflows without using Tekmetric code, branding, copy, layouts, private APIs, or proprietary assets.
+AutoGaragify is an original, locally hosted shop-management website for independent automotive repair businesses. It models common industry workflows without using Tekmetric code, branding, copy, layouts, private APIs, or proprietary assets.
 
 ## Run on Windows
 
 Requirements: Node.js 20+, npm 10+, and PostgreSQL 15+ (local or hosted).
 
 ```powershell
-cd AutoGragify
+cd AutoGaragify
 copy .env.example .env.local
 # Set DATABASE_URL in .env.local to your PostgreSQL connection string.
 npm.cmd install
 npm.cmd run dev -- -p 3000
 ```
 
-Open **http://localhost:3000**. AutoGragify creates its PostgreSQL tables automatically, then presents a one-time secure shop-owner setup. Changes made through the UI persist in PostgreSQL.
+Open **http://localhost:3000**. AutoGaragify creates its PostgreSQL tables automatically, then presents a one-time secure shop-owner setup. Changes made through the UI persist in PostgreSQL.
 
 Production check and start:
 
@@ -44,13 +44,13 @@ npm.cmd run start
 
 ## Architecture
 
-AutoGragify uses Next.js App Router, React, TypeScript, PostgreSQL, Drizzle ORM, Zod validation, route handlers and a custom responsive design system. Records are stored as typed domain documents in an indexed PostgreSQL record table, allowing the breadth of the platform to evolve without destructive migrations. Every write also creates an audit entry.
+AutoGaragify uses Next.js App Router, React, TypeScript, PostgreSQL, Drizzle ORM, Zod validation, route handlers and a custom responsive design system. Records are stored as typed domain documents in an indexed PostgreSQL record table, allowing the breadth of the platform to evolve without destructive migrations. Every write also creates an audit entry.
 
 `GET /api/bootstrap` initializes and reads the workspace. `POST/DELETE /api/records` validates and persists mutations. `GET /api/export` creates a portable JSON backup.
 
 ## Local access and external services
 
-AutoGragify includes password authentication, HTTP-only database-backed sessions, shop-scoped data access and server-enforced write permissions. Before public internet hosting, add rate limiting, CSRF/origin protection, encrypted secret management, secure attachment storage, managed backups and recovery tests.
+AutoGaragify includes password authentication, HTTP-only database-backed sessions, shop-scoped data access and server-enforced write permissions. Before public internet hosting, add rate limiting, CSRF/origin protection, encrypted secret management, secure attachment storage, managed backups and recovery tests.
 
 Messaging, card processing, financing, vehicle history, labor guides, parts ordering and accounting are represented by local adapter/sandbox records. Real service requires a vendor contract, API credentials and provider-specific compliance:
 

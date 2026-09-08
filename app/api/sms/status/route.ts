@@ -13,7 +13,7 @@ export async function GET() {
     from: configured ? smsFromNumber() : '',
     message: configured
       ? `Live SMS ready from ${smsFromNumber()}. Trial accounts can only text verified numbers.`
-      : 'Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER to .env.local, then restart AutoGragify.',
+      : 'Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER to .env.local, then restart AutoGaragify.',
     checklist: checklist.steps,
     setup: checklist.setup
   })

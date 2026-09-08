@@ -30,7 +30,7 @@ export async function createCheckoutSession(input: CheckoutInput) {
     return {
       ok: false as const,
       sandbox: true as const,
-      error: 'Add STRIPE_SECRET_KEY to .env.local, then restart AutoGragify.'
+      error: 'Add STRIPE_SECRET_KEY to .env.local, then restart AutoGaragify.'
     }
   }
 

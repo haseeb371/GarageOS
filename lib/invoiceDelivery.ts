@@ -19,7 +19,7 @@ export function buildInvoiceEmailLog(invoice: Row, customer: Row, shopName: stri
     itemName: `Invoice ${invoice.id}`,
     quantity: 0,
     note: [
-      `Sandbox email from ${shopName || 'AutoGragify'} would send invoice ${invoice.id} to ${customer.email || customer.phone || customer.name}:`,
+      `Sandbox email from ${shopName || 'AutoGaragify'} would send invoice ${invoice.id} to ${customer.email || customer.phone || customer.name}:`,
       `Total ${invoice.total} · Balance ${invoice.balance} · Due ${invoice.due || 'not set'}`,
       'Connect RESEND_API_KEY and EMAIL_FROM for live delivery.'
     ].join('\n'),
@@ -36,7 +36,7 @@ export function buildInvoicePrintHtml(
     payments?: Row[]
   }
 ) {
-  const shop = (context.shop || { name: 'AutoGragify' }) as Row
+  const shop = (context.shop || { name: 'AutoGaragify' }) as Row
   const customer = (context.customer || { name: 'Customer' }) as Row
   const order = context.order
   const payments = (context.payments || []).filter(payment => payment.invoiceId === invoice.id)

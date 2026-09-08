@@ -56,7 +56,7 @@ async function main() {
     DELETE FROM records
     WHERE shop_id = ${shopId}
       AND kind = 'laborGuideEntries'
-      AND data::text LIKE '%AutoGragify reference pack%'
+      AND data::text LIKE '%AutoGaragify reference pack%'
   `
 
   const stamp = Date.now()
@@ -72,7 +72,7 @@ async function main() {
         system: t.system,
         standardHours: t.standardHours,
         warrantyHours: t.warrantyHours,
-        source: 'AutoGragify reference pack',
+        source: 'AutoGaragify reference pack',
         sourceReference: 'Sandbox — not licensed MOTOR/AllData data',
         notes: t.notes,
         shopId
@@ -184,7 +184,7 @@ async function main() {
           ...d,
           mode: 'Sandbox pack',
           status: 'Ready',
-          notes: `Last import: ${entries.length} labor operations (AutoGragify reference pack).`
+          notes: `Last import: ${entries.length} labor operations (AutoGaragify reference pack).`
         })}, updated_at = ${Date.now()}
         WHERE id = ${row.id}
       `

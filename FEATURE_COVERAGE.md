@@ -1,4 +1,4 @@
-# AutoGragify capability coverage
+# AutoGaragify capability coverage
 
 This matrix describes the current local website, not the competing product that informed the general business categories.
 

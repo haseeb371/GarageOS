@@ -100,7 +100,7 @@ export async function GET(request: Request) {
     )
   }
 
-  const filename = `autogragify-payroll-${from || 'all'}-to-${to || 'all'}.csv`
+  const filename = `autogaragify-payroll-${from || 'all'}-to-${to || 'all'}.csv`
   return new Response(lines.join('\n'), {
     headers: {
       'content-type': 'text/csv; charset=utf-8',

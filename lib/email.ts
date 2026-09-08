@@ -69,7 +69,7 @@ export function emailSetupChecklist(creds?: EmailCreds | null) {
         id: 'from',
         label: 'From address',
         done: Boolean(from),
-        detail: from || 'Example: AutoGragify <onboarding@resend.dev> for testing'
+        detail: from || 'Example: AutoGaragify <onboarding@resend.dev> for testing'
       },
       {
         id: 'domain',
@@ -91,7 +91,7 @@ export function emailSetupChecklist(creds?: EmailCreds | null) {
     setup: [
       'Sign up at https://resend.com and create an API key',
       'Paste the key + From address in Ops (or .env.local)',
-      'For quick tests: AutoGragify <onboarding@resend.dev> (only emails your Resend login)',
+      'For quick tests: AutoGaragify <onboarding@resend.dev> (only emails your Resend login)',
       'For customers: Resend → Domains → Add domain → copy DNS to Cloudflare/Namecheap/etc.',
       'When Verified, set From to Your Shop <service@your-domain.com>',
       'Use Send test email'

@@ -158,7 +158,7 @@ export function EmailConnectForm() {
           <input
             value={from}
             onChange={e => setFrom(e.target.value)}
-            placeholder="AutoGragify <onboarding@resend.dev>"
+            placeholder="AutoGaragify <onboarding@resend.dev>"
           />
         </label>
         <label style={{ gridColumn: '1 / -1' }}>

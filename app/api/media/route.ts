@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     if (!(file instanceof File) || !inspectionId) return NextResponse.json({ error: 'Choose a file and inspection first.' }, { status: 400 })
     if (!/^image\//.test(file.type) && !/^video\//.test(file.type)) return NextResponse.json({ error: 'Only image and video files are allowed.' }, { status: 415 })
     if (file.size > 20 * 1024 * 1024) return NextResponse.json({ error: 'Files must be 20 MB or smaller.' }, { status: 413 })
-    const { apiKey,apiSecret,cloudName } = config(), timestamp = Math.floor(Date.now()/1000), folder = `autogragify/${user.shopId}/inspections/${inspectionId}`
+    const { apiKey,apiSecret,cloudName } = config(), timestamp = Math.floor(Date.now()/1000), folder = `autogaragify/${user.shopId}/inspections/${inspectionId}`
     const body = new FormData()
     body.set('file',file);body.set('api_key',apiKey);body.set('timestamp',String(timestamp));body.set('folder',folder);body.set('signature',signature({folder,timestamp},apiSecret))
     const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,{method:'POST',body,signal:AbortSignal.timeout(45000)})
@@ -40,7 +40,7 @@ export async function DELETE(request: Request) {
   if (!user) return NextResponse.json({ error:'Unauthorized' },{status:401})
   try {
     const { publicId,resourceType } = await request.json() as {publicId?:string;resourceType?:string}
-    if (!publicId || !publicId.startsWith(`autogragify/${user.shopId}/`)) return NextResponse.json({error:'Invalid attachment.'},{status:400})
+    if (!publicId || !publicId.startsWith(`autogaragify/${user.shopId}/`)) return NextResponse.json({error:'Invalid attachment.'},{status:400})
     const {apiKey,apiSecret,cloudName}=config(),timestamp=Math.floor(Date.now()/1000),body=new URLSearchParams()
     body.set('public_id',publicId);body.set('timestamp',String(timestamp));body.set('api_key',apiKey);body.set('signature',signature({public_id:publicId,timestamp},apiSecret))
     const type=resourceType==='video'?'video':'image',response=await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${type}/destroy`,{method:'POST',body,signal:AbortSignal.timeout(20000)})

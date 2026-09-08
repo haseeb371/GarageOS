@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { grouped, rows } = await shopData(user.shopId)
-  const shop = (grouped.shops || [])[0] || { id: user.shopId, name: 'AutoGragify' }
+  const shop = (grouped.shops || [])[0] || { id: user.shopId, name: 'AutoGaragify' }
   const lines = buildAccountingJournal(
     grouped.invoices || [],
     grouped.payments || [],
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
   const result = await pushAccountingJournal({
     shopId: user.shopId,
-    shopName: String(shop.name || 'AutoGragify'),
+    shopName: String(shop.name || 'AutoGaragify'),
     from: parsed.data.from,
     to: parsed.data.to,
     lines

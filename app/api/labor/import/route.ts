@@ -18,7 +18,7 @@ export async function GET() {
   return new NextResponse(laborCsvTemplate(), {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': 'attachment; filename="autogragify-labor-guide-template.csv"'
+      'Content-Disposition': 'attachment; filename="autogaragify-labor-guide-template.csv"'
     }
   })
 }
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   if (parsed.data.mode === 'reference-pack') {
     const { LABOR_REFERENCE_PACK } = await import('@/lib/laborGuide')
     templates = LABOR_REFERENCE_PACK
-    source = 'AutoGragify reference pack'
+    source = 'AutoGaragify reference pack'
     sourceReference = 'Sandbox — not licensed MOTOR/AllData data'
   } else {
     const csv = String(parsed.data.csv || '')

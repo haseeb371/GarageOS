@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 
   const message = buildReviewRequestMessage({
     customerName: String(customer.name || 'there'),
-    shopName: String(shop?.name || 'AutoGragify'),
+    shopName: String(shop?.name || 'AutoGaragify'),
     reviewUrl,
     platform: platformLabel
   })
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
   if (!to) return responseError('Customer has no email address.')
   const result = await sendEmail({
     to,
-    subject: `Thanks from ${shop?.name || 'AutoGragify'} — leave a quick review?`,
+    subject: `Thanks from ${shop?.name || 'AutoGaragify'} — leave a quick review?`,
     html: `<p>${message.replace(reviewUrl, `<a href="${reviewUrl}">${reviewUrl}</a>`)}</p>`,
     text: message
   })

@@ -79,7 +79,7 @@ export async function GET() {
       ],
       email: [
         'Resend → API Keys → create key',
-        'For tests: From = AutoGragify <onboarding@resend.dev> (only your Resend login email)',
+        'For tests: From = AutoGaragify <onboarding@resend.dev> (only your Resend login email)',
         'For customers: Domains → Add domain → DNS SPF/DKIM → Verified → From = Shop <you@yourdomain.com>'
       ],
       sms: [
@@ -124,8 +124,8 @@ export async function POST(req: NextRequest) {
     const result = await sendEmail(
       {
         to,
-        subject: 'AutoGragify email connection test',
-        html: `<p>AutoGragify email is connected for <b>${user.shopId}</b>.</p><p>From: ${emailCreds.from}</p>`
+        subject: 'AutoGaragify email connection test',
+        html: `<p>AutoGaragify email is connected for <b>${user.shopId}</b>.</p><p>From: ${emailCreds.from}</p>`
       },
       emailCreds
     )
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
     const to = String(parsed.data.testTo || '').trim()
     if (!to) return NextResponse.json({ error: 'Enter a test phone number (E.164).' }, { status: 400 })
     const smsCreds = resolveSmsCreds(saved)
-    const result = await sendSms({ to, body: 'AutoGragify SMS connection test. Your Twilio credentials work.' }, smsCreds)
+    const result = await sendSms({ to, body: 'AutoGaragify SMS connection test. Your Twilio credentials work.' }, smsCreds)
     testResult = {
       ok: result.ok,
       message: result.ok ? `Test SMS sent to ${result.to}.` : result.error
@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
     const result = await pushAccountingJournal(
       {
         shopId: user.shopId,
-        shopName: 'AutoGragify connection test',
+        shopName: 'AutoGaragify connection test',
         from: new Date().toISOString().slice(0, 10),
         to: new Date().toISOString().slice(0, 10),
         lines: [
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
             reference: 'TEST-PING',
             customer: 'Connection test',
             repairOrder: '',
-            description: 'AutoGragify Zapier/webhook ping',
+            description: 'AutoGaragify Zapier/webhook ping',
             debit: 1,
             credit: 0,
             method: '',

@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   const shop =
     shops.find(row => row.id === invoice.locationId) ||
     shops[0] ||
-    { currency: 'USD', name: 'AutoGragify' }
+    { currency: 'USD', name: 'AutoGaragify' }
 
   const result = await createCheckoutSession({
     invoiceId: String(invoice.id),
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     currency: String(shop.currency || 'USD'),
     customerEmail: customer?.email ? String(customer.email) : undefined,
     customerName: customer?.name ? String(customer.name) : undefined,
-    description: `Invoice ${invoice.id} · ${shop.name || 'AutoGragify'}`
+    description: `Invoice ${invoice.id} · ${shop.name || 'AutoGaragify'}`
   })
 
   if (!result.ok) return responseError(result.error, result.sandbox ? 503 : 400)

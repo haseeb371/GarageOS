@@ -19,7 +19,7 @@ export function middleware(req: NextRequest) {
   const referer = req.headers.get('referer') || ''
 
   let allowed = hostMatch(origin, host) || hostMatch(referer, host)
-  const hasSession = Boolean(req.cookies.get('autogragify_session')?.value)
+  const hasSession = Boolean(req.cookies.get('autogaragify_session')?.value)
   if (!allowed && !hasSession && !origin && !referer) allowed = true
 
   if (!allowed) {

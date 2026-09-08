@@ -4,7 +4,7 @@ import { createHash,randomBytes,randomUUID,scryptSync,timingSafeEqual } from 'cr
 import { and,eq,gt } from 'drizzle-orm'
 import { db,ensureSchema } from './db'
 import { authUsers,sessions } from './schema'
-const COOKIE='autogragify_session', LIFE=1209600000
+const COOKIE='autogaragify_session', LIFE=1209600000
 export type AuthUser={id:string;shopId:string;email:string;name:string;role:string}
 export function hashPassword(p:string){const s=randomBytes(16).toString('hex');return `scrypt:${s}:${scryptSync(p,s,64).toString('hex')}`}
 export function verifyPassword(p:string,v:string){const [a,s,h]=v.split(':');if(a!=='scrypt'||!s||!h)return false;const x=scryptSync(p,s,64),y=Buffer.from(h,'hex');return x.length===y.length&&timingSafeEqual(x,y)}
