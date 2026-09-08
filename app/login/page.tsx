@@ -8,5 +8,5 @@ export default async function Login({searchParams}:{searchParams:Promise<{mode?:
  if(await currentUser())redirect('/')
  const hasUsers=Boolean((await db.select().from(authUsers).limit(1))[0])
  const requested=(await searchParams).mode
- return <LoginForm configured={hasUsers||requested==='login'} canCreate={!hasUsers}/>
+ return <LoginForm configured={hasUsers||requested==='login'} registration={requested==='create'}/>
 }

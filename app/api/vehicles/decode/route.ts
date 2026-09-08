@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const [row] = await db.select().from(records).where(and(eq(records.id, parsed.data.vehicleId), eq(records.kind, 'vehicles'), eq(records.shopId, user.shopId))).limit(1)
   if (!row) return NextResponse.json({ error: 'Vehicle not found.' }, { status: 404 })
   try {
-    const response = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${encodeURIComponent(parsed.data.vin)}?format=json`, { signal: AbortSignal.timeout(12000), headers: { accept: 'application/json', 'user-agent': 'GarageOS/1.0 VIN decoder' }, cache: 'no-store' })
+    const response = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${encodeURIComponent(parsed.data.vin)}?format=json`, { signal: AbortSignal.timeout(12000), headers: { accept: 'application/json', 'user-agent': 'AutoGragify/1.0 VIN decoder' }, cache: 'no-store' })
     if (!response.ok) throw new Error(`NHTSA returned ${response.status}.`)
     const body = await response.json() as { Results?: Record<string,string>[] }
     const decoded = body.Results?.[0]

@@ -4,7 +4,11 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { records, auditLog } from '@/lib/schema'
 import { kinds, type Kind } from '@/lib/domain'
-import { canWrite, currentUser } from '@/lib/auth'
+import { buildAutomationContext, planAutomationsForSave } from '@/lib/automationRuntime'
+import { orderTotal } from '@/lib/booking'
+import { remindersFromCompletedOrder, shouldCreateReminders } from '@/lib/serviceReminders'
+import { shouldConsumeParts, consumptionEffects } from '@/lib/inventoryConsumption'
+import { currentUser } from '@/lib/auth'
 
 type Row = Record<string, unknown> & { id: string }
 const payload = z.object({
@@ -12,6 +16,24 @@ const payload = z.object({
   record: z.record(z.string(), z.unknown()).and(z.object({ id: z.string().trim().min(1).max(100) }))
 })
 const orderStatuses = ['Estimate', 'Authorized', 'In progress', 'Ready', 'Completed']
+const roleWrites: Record<string, readonly string[] | '*'> = {
+  Owner: '*',
+  Manager: '*',
+  Advisor: ['customers','vehicles','appointments','orders','laborGuideEntries','maintenanceSchedules','vehicleSpecifications','inspections','inventory','inventoryTransactions','purchaseOrders','supplierQuotes','partsOrders','tires','tireServices','invoices','payments','campaigns','serviceReminders','reviews'],
+  Technician: ['inspections','timeEntries','assignments'],
+  Bookkeeper: ['invoices','payments']
+}
+const roleDeletes: Record<string, readonly string[] | '*'> = {
+  Owner: '*',
+  Manager: ['customers','vehicles','appointments','orders','cannedJobs','pricingRules','warranties','laborGuideEntries','maintenanceSchedules','vehicleSpecifications','inspections','inventory','inventoryTransactions','vendors','purchaseOrders','supplierQuotes','partsOrders','tires','tireServices','invoices','payments','timeEntries','assignments','campaigns','serviceReminders','reviews','capacityResources','availabilityRules','workflowAutomations','automationJobs','bookingChannels','integrationConnections','syncRuns','supportTickets','compliancePolicies','incidents','shops','integrations'],
+  Advisor: ['appointments','inspections','campaigns','serviceReminders'],
+  Technician: [],
+  Bookkeeper: []
+}
+function allowed(role:string,kind:string,action:'write'|'delete') {
+  const rules=(action==='write'?roleWrites:roleDeletes)[role]
+  return rules==='*'||Array.isArray(rules)&&rules.includes(kind)
+}
 
 function responseError(error: unknown, status = 400) {
   const message = error instanceof Error ? error.message : 'The request could not be completed.'
@@ -92,15 +114,27 @@ function validate(kind: Kind, record: Row, all: Awaited<ReturnType<typeof shopRo
     if (record.status === 'In progress' && !record.timerStartedAt) throw new Error('An active assignment requires a timer start time.')
     if (record.status !== 'In progress' && record.timerStartedAt) throw new Error('Only an active assignment may have a running timer.')
   }
+  if (kind === 'serviceReminders') {
+    const customer = find(all, 'customers', record.customerId), vehicle = find(all, 'vehicles', record.vehicleId)
+    if (!customer || !vehicle || vehicle.customerId !== customer.id) throw new Error('Select a customer and one of their vehicles.')
+    requiredText('service', 'Recommended service')
+    if (!record.dueDate && !Number(record.dueMileage)) throw new Error('Enter a due date or due mileage.')
+    if (!['Due soon','Due','Sent','Booked','Completed'].includes(String(record.status))) throw new Error('Select a valid reminder status.')
+  }
+  if (kind === 'vendors' || kind === 'shops' || kind === 'integrations') requiredText('name', 'Name')
+  if (kind === 'campaigns') {
+    requiredText('name', 'Campaign name')
+    requiredText('template', 'Campaign message')
+  }
 }
 
 export async function POST(req: NextRequest) {
   const user = await currentUser()
   if (!user) return responseError('Unauthorized', 401)
-  if (!canWrite(user.role)) return responseError('Your role cannot change shop records.', 403)
   const parsed = payload.safeParse(await req.json())
   if (!parsed.success) return responseError(parsed.error.issues[0]?.message || 'Invalid record.')
   const { kind, record } = parsed.data
+  if (!allowed(user.role,kind,'write')) return responseError(`${user.role} access cannot change ${kind}. Ask an owner or manager.`, 403)
   const now = Date.now()
   try {
     await db.transaction(async tx => {
@@ -114,6 +148,14 @@ export async function POST(req: NextRequest) {
         if (!Number.isFinite(amount) || amount <= 0) throw new Error('Payment amount must be greater than zero.')
         const balance = Number(invoice.balance || 0)
         if (amount > balance + 0.005) throw new Error('Payment cannot be greater than the invoice balance.')
+        if (String(record.method) === 'Customer credit') {
+          const customer = find(all, 'customers', invoice.customerId)
+          if (!customer) throw new Error('Invoice customer was not found.')
+          const credit = Number(customer.credit || 0)
+          if (amount > credit + 0.005) throw new Error('Payment exceeds available customer credit.')
+          const updatedCustomer = { ...customer, credit: Math.max(0, credit - amount) }
+          await tx.update(records).set({ data: JSON.stringify(updatedCustomer), updatedAt: now }).where(and(eq(records.id, customer.id), eq(records.shopId, user.shopId)))
+        }
         const nextBalance = Math.max(0, balance - amount)
         const updatedInvoice = { ...invoice, balance: nextBalance, status: nextBalance === 0 ? 'Paid' : 'Partial' }
         await tx.update(records).set({ data: JSON.stringify(updatedInvoice), updatedAt: now }).where(and(eq(records.id, invoice.id), eq(records.shopId, user.shopId)))
@@ -122,6 +164,117 @@ export async function POST(req: NextRequest) {
       await tx.insert(records).values({ id: record.id, kind, shopId: user.shopId, data: JSON.stringify(clean), createdAt: now, updatedAt: now })
         .onConflictDoUpdate({ target: records.id, set: { data: JSON.stringify(clean), kind, shopId: user.shopId, updatedAt: now } })
       await tx.insert(auditLog).values({ actor: user.id, action: existing ? 'update' : 'create', entity: kind, entityId: record.id, detail: `${existing ? 'Updated' : 'Created'} ${record.id}`, createdAt: now })
+
+      const refreshed = await shopRows(tx, user.shopId)
+      const automations = refreshed.filter(row => row.kind === 'workflowAutomations').map(row => row.data)
+      const automationContext = buildAutomationContext(refreshed, existing as Row | undefined)
+      for (const effect of planAutomationsForSave(kind, clean, automations, automationContext)) {
+        const effectExisting = find(refreshed, effect.kind as Kind, effect.record.id)
+        const effectClean = { ...effect.record, shopId: user.shopId }
+        await tx.insert(records).values({
+          id: effect.record.id,
+          kind: effect.kind,
+          shopId: user.shopId,
+          data: JSON.stringify(effectClean),
+          createdAt: now,
+          updatedAt: now
+        }).onConflictDoUpdate({
+          target: records.id,
+          set: { data: JSON.stringify(effectClean), kind: effect.kind, shopId: user.shopId, updatedAt: now }
+        })
+        if (!effectExisting && effect.kind !== 'workflowAutomations') {
+          await tx.insert(auditLog).values({
+            actor: user.id,
+            action: 'automation',
+            entity: effect.kind,
+            entityId: effect.record.id,
+            detail: `Automation created ${effect.record.id}`,
+            createdAt: now
+          })
+        }
+      }
+
+      if (kind === 'shops' && !existing) {
+        const channelId = `BC-${String(record.id).slice(0, 8)}`
+        const channel = {
+          id: channelId,
+          name: `${record.name || 'Location'} booking page`,
+          type: 'Website',
+          status: 'Active',
+          publicUrl: `/book/${record.id}`,
+          calendarId: '',
+          leadTimeHours: 2,
+          horizonDays: 60,
+          services: 'General service, diagnostics, maintenance',
+          notes: 'Public online booking for this location.',
+          shopId: user.shopId
+        }
+        await tx.insert(records).values({
+          id: channelId,
+          kind: 'bookingChannels',
+          shopId: user.shopId,
+          data: JSON.stringify(channel),
+          createdAt: now,
+          updatedAt: now
+        }).onConflictDoNothing()
+      }
+      if (kind === 'invoices' && record.orderId && !existing) {
+        const order = find(refreshed, 'orders', record.orderId)
+        if (order && !Number(record.total)) {
+          const total = Math.round(orderTotal(order) * 100) / 100
+          const updated = { ...clean, total, balance: total, status: record.status || 'Due', issuedAt: new Date().toISOString().slice(0, 10) }
+          await tx.update(records).set({ data: JSON.stringify(updated), updatedAt: now }).where(and(eq(records.id, record.id), eq(records.shopId, user.shopId)))
+        }
+      }
+
+      if (kind === 'orders') {
+        const vehicle = find(refreshed, 'vehicles', record.vehicleId)
+        const existingReminders = refreshed.filter(row => row.kind === 'serviceReminders').map(row => row.data)
+        if (shouldCreateReminders(existingReminders, clean, existing)) {
+          for (const reminder of remindersFromCompletedOrder(clean, vehicle)) {
+            const reminderClean = { ...reminder, shopId: user.shopId }
+            await tx.insert(records).values({
+              id: reminder.id,
+              kind: 'serviceReminders',
+              shopId: user.shopId,
+              data: JSON.stringify(reminderClean),
+              createdAt: now,
+              updatedAt: now
+            }).onConflictDoNothing()
+            await tx.insert(auditLog).values({
+              actor: user.id,
+              action: 'automation',
+              entity: 'serviceReminders',
+              entityId: reminder.id,
+              detail: `Auto-created from completed repair order ${record.id}`,
+              createdAt: now
+            })
+          }
+        }
+
+        if (shouldConsumeParts(existing, clean)) {
+          const inventoryRows = refreshed.filter(row => row.kind === 'inventory').map(row => row.data)
+          const partsOrderRows = refreshed.filter(row => row.kind === 'partsOrders').map(row => row.data)
+          const { inventoryUpdates, transactions, orderPatch } = consumptionEffects(clean, inventoryRows, partsOrderRows)
+          for (const item of inventoryUpdates) {
+            const itemClean = { ...item, shopId: user.shopId }
+            await tx.update(records).set({ data: JSON.stringify(itemClean), updatedAt: now }).where(and(eq(records.id, item.id), eq(records.shopId, user.shopId)))
+          }
+          for (const transaction of transactions) {
+            const transactionClean = { ...transaction, shopId: user.shopId }
+            await tx.insert(records).values({
+              id: transaction.id,
+              kind: 'inventoryTransactions',
+              shopId: user.shopId,
+              data: JSON.stringify(transactionClean),
+              createdAt: now,
+              updatedAt: now
+            }).onConflictDoNothing()
+          }
+          const orderWithDeduction = { ...clean, ...orderPatch }
+          await tx.update(records).set({ data: JSON.stringify(orderWithDeduction), updatedAt: now }).where(and(eq(records.id, record.id), eq(records.shopId, user.shopId)))
+        }
+      }
     })
     return NextResponse.json({ ok: true, record })
   } catch (error) { return responseError(error) }
@@ -130,10 +283,10 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const user = await currentUser()
   if (!user) return responseError('Unauthorized', 401)
-  if (!canWrite(user.role)) return responseError('Your role cannot delete shop records.', 403)
   const parsed = z.object({ id: z.string().min(1), kind: z.enum(kinds) }).safeParse(await req.json())
   if (!parsed.success) return responseError('Invalid delete request.')
   const { id, kind } = parsed.data
+  if (!allowed(user.role,kind,'delete')) return responseError(`${user.role} access cannot delete ${kind}. Ask an owner or manager.`, 403)
   try {
     await db.transaction(async tx => {
       const all = await shopRows(tx, user.shopId)

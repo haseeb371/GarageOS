@@ -42,7 +42,7 @@ export async function getEstimateApproval(token: string) {
   return {
     state: link.status === 'Responded' ? 'responded' as const : 'open' as const,
     expiresAt: link.expiresAt,
-    shop: { name: shop?.name || 'GarageOS repair shop', phone: shop?.phone || '', address: shop?.address || '' },
+    shop: { name: shop?.name || 'AutoGragify repair shop', phone: shop?.phone || '', address: shop?.address || '' },
     customer: { name: customer.name },
     vehicle: { year: vehicle.year, make: vehicle.make, model: vehicle.model, plate: vehicle.plate, mileage: vehicle.mileage },
     order: {

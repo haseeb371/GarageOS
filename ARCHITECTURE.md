@@ -1,4 +1,4 @@
-# GarageOS architecture
+# AutoGragify architecture
 
 ## Runtime
 
@@ -15,7 +15,7 @@
 
 ## Security boundary
 
-GarageOS uses credential-based authentication with scrypt password hashes, opaque HTTP-only session cookies, shop-scoped reads and server-enforced write permissions. No third-party secrets or raw card data are stored in domain records. An internet deployment should additionally add rate limiting, CSRF/origin defenses, encrypted secret management, managed backups, recovery drills and formal audit-retention controls.
+AutoGragify uses credential-based authentication with scrypt password hashes, opaque HTTP-only session cookies, shop-scoped reads and server-enforced write permissions. No third-party secrets or raw card data are stored in domain records. An internet deployment should additionally add rate limiting, CSRF/origin defenses, encrypted secret management, managed backups, recovery drills and formal audit-retention controls.
 
 ## Integration boundary
 
