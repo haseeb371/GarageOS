@@ -2,6 +2,7 @@
 import { useEffect,useMemo,useState } from 'react'
 import {LayoutDashboard,Users,CalendarDays,Wrench,ClipboardCheck,Package,ReceiptText,BarChart3,Megaphone,Settings,Search,Plus,ChevronRight,Clock3,Download,Menu,X,ShieldCheck,Building2,Truck,RefreshCcw,CircleHelp,Link2,Copy,Check,BookOpen,BadgeDollarSign,ScanLine,LogOut,Printer,Mail} from 'lucide-react'
 import {AdminResources,MarketingHub,OperationsCenter,PartsMarketplace,TireManager,VehicleIntelligence,VendorManager} from './FeatureCompleters'
+import {PWAInstaller} from './PWAInstaller'
 import {buildDeclinedWorkCampaign,declinedWorkSegment} from '@/lib/marketing'
 import {draftLowStockPurchaseOrders} from '@/lib/inventoryPurchasing'
 import {creditApplicationAmount} from '@/lib/billing'
@@ -121,7 +122,8 @@ export default function GarageApp({session}:{session:{id?:string;name:string;rol
     {section==='admin'&&<><Admin data={data} session={session} reload={load}/><AdminResources data={data} open={(kind,row)=>setModal({kind,row})} reload={load}/></>}
    </div>
   </main>
-  {modal&&<Editor data={data} kind={modal.kind} row={modal.row} onClose={()=>setModal(null)} onSave={r=>save(modal.kind,r)} onDelete={()=>remove(modal.kind,modal.row.id)}/>} 
+  {modal&&<Editor data={data} kind={modal.kind} row={modal.row} onClose={()=>setModal(null)} onSave={r=>save(modal.kind,r)} onDelete={()=>remove(modal.kind,modal.row.id)}/>}
+  <PWAInstaller/>
  </div>
 }
 
