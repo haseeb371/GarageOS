@@ -28,6 +28,10 @@ export function ensureSchema() {
     await tx`CREATE TABLE IF NOT EXISTS estimate_approval_links (id text PRIMARY KEY, shop_id text NOT NULL, order_id text NOT NULL, token_hash text NOT NULL UNIQUE, status text NOT NULL, created_by text NOT NULL, expires_at bigint NOT NULL, created_at bigint NOT NULL, responded_at bigint)`
     await tx`CREATE INDEX IF NOT EXISTS estimate_approval_links_token_idx ON estimate_approval_links(token_hash)`
     await tx`CREATE INDEX IF NOT EXISTS estimate_approval_links_order_idx ON estimate_approval_links(shop_id, order_id)`
+    await tx`ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS email_verified boolean NOT NULL DEFAULT false`
+    await tx`ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS two_factor_enabled boolean NOT NULL DEFAULT false`
+    await tx`CREATE TABLE IF NOT EXISTS auth_codes (id serial PRIMARY KEY, email text NOT NULL, code_hash text NOT NULL, purpose text NOT NULL, expires_at bigint NOT NULL, consumed_at bigint, created_at bigint NOT NULL)`
+    await tx`CREATE INDEX IF NOT EXISTS auth_codes_email_idx ON auth_codes(email, purpose)`
   }).then(() => undefined).catch(error => { globalForDb.garageSchema = undefined; throw error })
   return globalForDb.garageSchema
 }

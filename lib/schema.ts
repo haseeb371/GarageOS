@@ -27,6 +27,8 @@ export const authUsers = pgTable('auth_users', {
   role: text('role').notNull(),
   passwordHash: text('password_hash').notNull(),
   active: boolean('active').notNull().default(true),
+  emailVerified: boolean('email_verified').notNull().default(false),
+  twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
   createdAt: bigint('created_at', { mode: 'number' }).notNull(),
   updatedAt: bigint('updated_at', { mode: 'number' }).notNull()
 })
@@ -53,4 +55,16 @@ export const estimateApprovalLinks = pgTable('estimate_approval_links', {
 }, table => [
   uniqueIndex('estimate_approval_links_token_idx').on(table.tokenHash),
   index('estimate_approval_links_order_idx').on(table.shopId, table.orderId)
+])
+
+export const authCodes = pgTable('auth_codes', {
+  id: serial('id').primaryKey(),
+  email: text('email').notNull(),
+  codeHash: text('code_hash').notNull(),
+  purpose: text('purpose').notNull(),
+  expiresAt: bigint('expires_at', { mode: 'number' }).notNull(),
+  consumedAt: bigint('consumed_at', { mode: 'number' }),
+  createdAt: bigint('created_at', { mode: 'number' }).notNull()
+}, table => [
+  index('auth_codes_email_idx').on(table.email, table.purpose)
 ])
