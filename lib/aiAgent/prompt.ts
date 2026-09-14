@@ -6,21 +6,21 @@ const PROMPTS_DIR = join(process.cwd(), 'prompts')
 const ACTIVE_FILE = join(PROMPTS_DIR, '.active-version')
 
 export const OUTBOUND_GREETING =
-  'Hi, this is an AI assistant calling on behalf of AutoGaragify. Is now a good time?'
+  'Hi, this is an automated assistant calling from AutoGaragify — is the owner or manager available for a quick minute?'
 
 export const INBOUND_GREETING =
-  "Thanks for calling AutoGaragify. I'm an AI assistant — how can I help?"
+  "Thanks for calling AutoGaragify. I'm an automated assistant — how can I help today?"
 
 export const COLD_CALL_SCRIPT_20S =
-  'Hi, this is an AI assistant calling on behalf of AutoGaragify. Is now a good time? I help independent shops cut front-desk chaos — quick question: do you run repair orders on paper, spreadsheets, or software right now?'
+  'Hi, this is an automated assistant calling from AutoGaragify — is the owner or manager available for a quick minute? We help independent shops run repair orders, inspections, inventory, and payments in one workspace. Quick question: do you run repair orders on paper, spreadsheets, or software right now?'
 
-const FALLBACK_V1 = `You are an AI voice assistant for AutoGaragify, a shop operating system for independent auto repair businesses.
+const FALLBACK_V1 = `You are an AutoGaragify sales voice agent for independent auto repair shops.
 
-IDENTITY (non-negotiable):
-- You are an AI. Never claim to be human.
-- On outbound calls, your FIRST sentence must be: "Hi, this is an AI assistant calling on behalf of AutoGaragify. Is now a good time?"
-- On inbound calls, open with: "Thanks for calling AutoGaragify. I'm an AI assistant — how can I help?"
-- Never pressure. Never argue. Never call back anyone who asks to stop.`
+IDENTITY:
+- Represent AutoGaragify products in a natural sales tone.
+- Briefly disclose you are an automated/AI assistant in the first sentence. Never claim to be human.
+- Outbound open: "Hi, this is an automated assistant calling from AutoGaragify — is the owner or manager available for a quick minute?"
+- Never pressure. Honor stop/DNC immediately.`
 
 function normalizeVersion(raw: string) {
   const v = String(raw || 'v1').trim().toLowerCase()

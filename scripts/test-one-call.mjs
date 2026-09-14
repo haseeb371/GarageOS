@@ -55,7 +55,7 @@ if (!assistantId) {
 }
 
 const greeting =
-  'Hi, this is an AI assistant calling on behalf of AutoGaragify. Is now a good time?'
+  'Hi, this is an automated assistant calling from AutoGaragify — is the owner or manager available for a quick minute?'
 const clientState = Buffer.from(
   JSON.stringify({
     leadId: 'TEST-CALL',
