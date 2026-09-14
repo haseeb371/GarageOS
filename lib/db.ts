@@ -133,6 +133,25 @@ export function ensureSchema() {
       created_at bigint NOT NULL
     )`
     await tx`CREATE INDEX IF NOT EXISTS compliance_violations_shop_idx ON compliance_violations(shop_id)`
+    await tx`CREATE TABLE IF NOT EXISTS demo_appointments (
+      id text PRIMARY KEY,
+      shop_id text NOT NULL,
+      lead_id text,
+      business_name text NOT NULL DEFAULT '',
+      contact_name text NOT NULL DEFAULT '',
+      phone text NOT NULL DEFAULT '',
+      email text NOT NULL DEFAULT '',
+      starts_at bigint NOT NULL,
+      ends_at bigint NOT NULL,
+      timezone text NOT NULL DEFAULT 'America/Chicago',
+      status text NOT NULL DEFAULT 'scheduled',
+      source text NOT NULL DEFAULT 'web',
+      notes text NOT NULL DEFAULT '',
+      created_at bigint NOT NULL,
+      updated_at bigint NOT NULL
+    )`
+    await tx`CREATE INDEX IF NOT EXISTS demo_appointments_shop_starts_idx ON demo_appointments(shop_id, starts_at)`
+    await tx`CREATE INDEX IF NOT EXISTS demo_appointments_shop_status_idx ON demo_appointments(shop_id, status)`
   }).then(() => undefined).catch(error => { globalForDb.garageSchema = undefined; throw error })
   return globalForDb.garageSchema
 }

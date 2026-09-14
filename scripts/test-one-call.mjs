@@ -84,7 +84,7 @@ if (process.env.DATABASE_URL) {
 }
 
 const greeting =
-  'Hi, this is an automated assistant calling from AutoGaragify — is the owner or manager available for a quick minute?'
+  'Hi — this is an automated assistant calling from AutoGaragify. Did I catch you for thirty seconds?'
 const clientState = Buffer.from(
   JSON.stringify({
     leadId,

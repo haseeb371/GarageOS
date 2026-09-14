@@ -51,7 +51,8 @@ export async function POST(req: NextRequest) {
     name,
     args,
     shopId,
-    callControlId
+    callControlId,
+    direction: String(body.direction || args.direction || 'outbound') === 'inbound' ? 'inbound' : 'outbound'
   })
 
   return NextResponse.json(result, { status: result.ok ? 200 : 400 })

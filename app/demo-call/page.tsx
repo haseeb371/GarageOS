@@ -1,4 +1,5 @@
 import { getConfig } from '@/lib/config'
+import { DemoBookingClient } from './DemoBookingClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,23 +10,13 @@ export default function DemoCallPage() {
   return (
     <main className="demo-call-page">
       <p className="eyebrow">AutoGaragify</p>
-      <h1>Talk to our AI assistant</h1>
+      <h1>Talk with sales</h1>
       <p className="demo-call-copy">
-        Call for a live demo of inbound AI voice — disclosure, shop Q&amp;A, and warm transfer when you
-        want a human.
+        Call our sales line anytime — an automated assistant answers, pitches the product naturally, and can
+        book a live demo on our calendar. Or skip the phone and reserve a 15-minute slot below.
       </p>
-      {telHref ? (
-        <a className="btn demo-call-btn" href={telHref}>
-          Call for a live demo
-          <span>{from}</span>
-        </a>
-      ) : (
-        <div className="btn demo-call-btn disabled">
-          Call for a live demo
-          <span>{from}</span>
-        </div>
-      )}
-      <p className="muted">You will hear an AI assistant — never a pretend human.</p>
+      <DemoBookingClient phoneDisplay={from} telHref={telHref} />
+      <p className="muted">Calls disclose they are automated — then talk products like a normal sales intro.</p>
     </main>
   )
 }

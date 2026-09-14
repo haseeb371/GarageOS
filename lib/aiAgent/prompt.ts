@@ -6,13 +6,25 @@ const PROMPTS_DIR = join(process.cwd(), 'prompts')
 const ACTIVE_FILE = join(PROMPTS_DIR, '.active-version')
 
 export const OUTBOUND_GREETING =
-  'Hi, this is an automated assistant calling from AutoGaragify — is the owner or manager available for a quick minute?'
+  'Hi — this is an automated assistant calling from AutoGaragify. Did I catch you for thirty seconds?'
 
 export const INBOUND_GREETING =
-  "Thanks for calling AutoGaragify. I'm an automated assistant — how can I help today?"
+  "Thanks for calling AutoGaragify — I'm an automated assistant on the sales line. Are you looking for a product demo, pricing, or something else?"
 
 export const COLD_CALL_SCRIPT_20S =
-  'Hi, this is an automated assistant calling from AutoGaragify — is the owner or manager available for a quick minute? We help independent shops run repair orders, inspections, inventory, and payments in one workspace. Quick question: do you run repair orders on paper, spreadsheets, or software right now?'
+  'Hi — this is an automated assistant calling from AutoGaragify. Did I catch you for thirty seconds? We help independent shops run repair orders, inspections, techs, and payments in one workspace. Quick question: do you run repair orders on paper, spreadsheets, or software right now?'
+
+/** Direction lock prepended to the active prompt at call start. */
+export function directionInstructions(direction: 'inbound' | 'outbound') {
+  if (direction === 'inbound') {
+    return `CALL DIRECTION: INBOUND. The shop called you. Use the inbound open. Never pretend you dialed them. Never say "is the owner available for a quick minute" as a cold-call opener.`
+  }
+  return `CALL DIRECTION: OUTBOUND. You dialed them. Use the outbound open only once. Never say "Thanks for calling AutoGaragify." Stay on the sales pitch and book a calendar demo.`
+}
+
+export function getCallSystemPrompt(direction: 'inbound' | 'outbound') {
+  return `${directionInstructions(direction)}\n\n${getSystemPrompt()}`
+}
 
 const FALLBACK_V1 = `You are an AutoGaragify sales voice agent for independent auto repair shops.
 

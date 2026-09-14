@@ -21,8 +21,9 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
         </Link>
         <nav className="site-chrome-nav">
           <Link href="/tech">Tech bay</Link>
-          <Link href="/demo-call">Call for a live demo</Link>
+          <Link href="/demo-call">Call / book demo</Link>
           <Link href="/leads">Leads</Link>
+          <Link href="/demos">Demo calendar</Link>
           <Link href="/campaigns">Campaigns</Link>
         </nav>
       </header>
@@ -30,7 +31,9 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
       <footer className="site-chrome-footer">
         <Link href="/tech">Tech bay</Link>
         <span className="muted"> · </span>
-        <Link href="/demo-call">Call for a live demo</Link>
+        <Link href="/demo-call">Call / book demo</Link>
+        <span className="muted"> · </span>
+        <Link href="/demos">Demo calendar</Link>
         <span className="muted"> · AutoGaragify AI voice</span>
       </footer>
     </>

@@ -3,6 +3,7 @@ export type AgentToolName =
   | 'mark_not_interested'
   | 'mark_dnc'
   | 'transfer_to_human'
+  | 'list_demo_slots'
   | 'book_demo'
 
 export function assistantToolDefinitions(webhookBaseUrl: string) {
@@ -29,13 +30,37 @@ export function assistantToolDefinitions(webhookBaseUrl: string) {
 
   return [
     tool(
+      'list_demo_slots',
+      'List open 15-minute product demo times the buyer can book on the sales calendar',
+      {
+        lead_id: { type: 'string', description: 'Sales lead id if known' }
+      },
+      []
+    ),
+    tool(
+      'book_demo',
+      'Book a real 15-minute demo on the AutoGaragify sales calendar',
+      {
+        lead_id: { type: 'string', description: 'Sales lead id if known' },
+        datetime_iso: {
+          type: 'string',
+          description: 'ISO datetime or starts_at ms from list_demo_slots'
+        },
+        contact_name: { type: 'string', description: 'Owner or manager name' },
+        business_name: { type: 'string', description: 'Shop name' },
+        phone: { type: 'string', description: 'Callback phone if different' },
+        email: { type: 'string', description: 'Email for calendar confirmation' }
+      },
+      ['datetime_iso']
+    ),
+    tool(
       'mark_interested',
-      'Lead wants a demo / is interested',
+      'Lead wants a demo / is interested but no exact slot yet',
       {
         lead_id: { type: 'string', description: 'Sales lead id' },
-        preferred_time: { type: 'string', description: 'Preferred demo time' }
+        preferred_time: { type: 'string', description: 'Preferred demo time window' }
       },
-      ['lead_id']
+      []
     ),
     tool(
       'mark_not_interested',
@@ -44,7 +69,7 @@ export function assistantToolDefinitions(webhookBaseUrl: string) {
         lead_id: { type: 'string', description: 'Sales lead id' },
         reason: { type: 'string', description: 'Short reason' }
       },
-      ['lead_id']
+      []
     ),
     tool(
       'mark_dnc',
@@ -52,7 +77,7 @@ export function assistantToolDefinitions(webhookBaseUrl: string) {
       {
         lead_id: { type: 'string', description: 'Sales lead id' }
       },
-      ['lead_id']
+      []
     ),
     tool(
       'transfer_to_human',
@@ -61,16 +86,7 @@ export function assistantToolDefinitions(webhookBaseUrl: string) {
         lead_id: { type: 'string', description: 'Sales lead id' },
         call_control_id: { type: 'string', description: 'Active Telnyx call_control_id' }
       },
-      ['lead_id', 'call_control_id']
-    ),
-    tool(
-      'book_demo',
-      'Book a 15-minute demo',
-      {
-        lead_id: { type: 'string', description: 'Sales lead id' },
-        datetime_iso: { type: 'string', description: 'ISO datetime for demo' }
-      },
-      ['lead_id', 'datetime_iso']
+      ['call_control_id']
     )
   ]
 }

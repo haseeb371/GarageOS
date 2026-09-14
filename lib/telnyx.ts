@@ -1,7 +1,7 @@
 import { createPublicKey, verify } from 'crypto'
 import { appBaseUrl } from '@/lib/stripe'
 import { getConfig, isDialerEnabled } from '@/lib/config'
-import { getSystemPrompt, OUTBOUND_GREETING, INBOUND_GREETING } from '@/lib/aiAgent/prompt'
+import { getCallSystemPrompt, OUTBOUND_GREETING, INBOUND_GREETING } from '@/lib/aiAgent/prompt'
 import { assistantToolDefinitions } from '@/lib/aiAgent/toolDefinitions'
 
 const API = 'https://api.telnyx.com/v2'
@@ -57,7 +57,7 @@ export async function createAIAssistant(config?: {
   const body = {
     name: config?.name || 'AutoGaragify Sales AI',
     model: config?.model || process.env.TELNYX_AI_MODEL?.trim() || 'Qwen/Qwen3-235B-A22B',
-    instructions: config?.instructions || getSystemPrompt(),
+    instructions: config?.instructions || getCallSystemPrompt('outbound'),
     enabled_features: ['telephony'],
     greeting: OUTBOUND_GREETING,
     tools: assistantToolDefinitions(base)
@@ -97,7 +97,7 @@ export async function placeOutboundCall(
     JSON.stringify({ leadId, shopId, campaign, direction: 'outbound' }),
     'utf8'
   ).toString('base64')
-  const instructions = getSystemPrompt()
+  const instructions = getCallSystemPrompt('outbound')
 
   const result = await telnyxFetch('/calls', {
     method: 'POST',
@@ -149,11 +149,15 @@ export async function answerWithAssistant(
       body: JSON.stringify({
         assistant: {
           id: assistantId,
-          instructions: getSystemPrompt(),
+          instructions: getCallSystemPrompt(direction),
           greeting
         },
         client_state: Buffer.from(
-          JSON.stringify({ leadId: leadId || '', direction }),
+          JSON.stringify({
+            leadId: leadId || '',
+            shopId: getConfig().LEADS_IMPORT_SHOP_ID || '',
+            direction
+          }),
           'utf8'
         ).toString('base64')
       })

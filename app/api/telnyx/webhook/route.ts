@@ -12,7 +12,7 @@ import {
 } from '@/lib/telnyx'
 import { rememberWebhookEvent } from '@/lib/webhookIdempotency'
 import { assertOutboundDisclosure, detectDncIntent } from '@/lib/aiAgent/transcript'
-import { addPhoneToDnc, dispatchAgentTool, recordComplianceViolation } from '@/lib/aiAgent/tools'
+import { addPhoneToDnc, dispatchAgentTool, ensureInboundLead, recordComplianceViolation } from '@/lib/aiAgent/tools'
 import { releaseDial } from '@/lib/dialer'
 import { normalizeUsPhone } from '@/lib/leads'
 import { getConfig } from '@/lib/config'
@@ -117,11 +117,18 @@ export async function POST(req: NextRequest) {
   const now = Date.now()
 
   if (eventType === 'call.initiated') {
+    let inboundLeadId =
+      clientState.leadId && clientState.leadId !== 'TEST-CALL' ? clientState.leadId : null
+    if (direction === 'inbound' && shopId) {
+      const created = await ensureInboundLead(shopId, String(payload.from || ''))
+      if (created) inboundLeadId = created
+    }
+
     const existing = await findLogByCallId(callControlId)
     if (!existing) {
       await db.insert(contactLogs).values({
         shopId,
-        leadId: clientState.leadId && clientState.leadId !== 'TEST-CALL' ? clientState.leadId : null,
+        leadId: inboundLeadId,
         actorId: direction === 'inbound' ? 'telnyx-inbound' : 'telnyx-outbound',
         outcome: direction === 'inbound' ? 'in_progress' : 'dialing',
         detail:
@@ -145,10 +152,10 @@ export async function POST(req: NextRequest) {
       if (!getConfig().TELNYX_ASSISTANT_ID) {
         await answerWithUnavailableTts(callControlId)
       } else {
-        await answerWithAssistant(callControlId, 'inbound')
+        await answerWithAssistant(callControlId, 'inbound', inboundLeadId || undefined)
       }
     }
-    return NextResponse.json({ ok: true, shopId })
+    return NextResponse.json({ ok: true, shopId, leadId: inboundLeadId })
   }
 
   if (eventType === 'call.answered') {
@@ -241,7 +248,8 @@ export async function POST(req: NextRequest) {
       name: toolName,
       args: { ...args, lead_id: leadId },
       shopId: shopId || 'unknown',
-      callControlId
+      callControlId,
+      direction
     })
     return NextResponse.json({ ok: true })
   }

@@ -15,6 +15,8 @@ import {
   assistantToolDefinitions,
   type AgentToolName
 } from '@/lib/aiAgent/toolDefinitions'
+import { bookDemoAppointment, listDemoSlots } from '@/lib/salesCalendar'
+import { getConfig } from '@/lib/config'
 
 export type { AgentToolName }
 export { markDncPlan, assistantToolDefinitions }
@@ -44,23 +46,30 @@ async function notifyShop(shopId: string, type: string, payload: Record<string, 
   }
 }
 
+function resolveShopId(shopId: string) {
+  return shopId && shopId !== 'unknown' ? shopId : getConfig().LEADS_IMPORT_SHOP_ID || shopId
+}
+
 export async function dispatchAgentTool(input: {
   name: string
   args: Record<string, unknown>
   shopId: string
   callControlId?: string
+  direction?: 'inbound' | 'outbound'
 }) {
+  const shopId = resolveShopId(input.shopId)
   const leadId = String(input.args.lead_id || '')
   const now = Date.now()
+  const direction = input.direction || 'outbound'
 
   const log = async (outcome: string, detail: string) => {
     await db.insert(contactLogs).values({
-      shopId: input.shopId,
+      shopId,
       leadId: leadId || null,
       actorId: 'ai-assistant',
       outcome,
       detail,
-      direction: 'outbound',
+      direction,
       telnyxCallId: input.callControlId || null,
       status: outcome,
       transcript: [],
@@ -73,7 +82,51 @@ export async function dispatchAgentTool(input: {
     })
   }
 
-  if (input.name === 'mark_interested' || input.name === 'book_demo') {
+  if (input.name === 'list_demo_slots') {
+    const slots = await listDemoSlots({ shopId, limit: 6 })
+    if (!slots.length) {
+      return { ok: false, message: 'No open demo slots in the next two weeks.' }
+    }
+    const spoken = slots.map((s, i) => `${i + 1}) ${s.label}`).join('; ')
+    return {
+      ok: true,
+      message: `Offer two of these times: ${spoken}`,
+      slots: slots.map(s => ({ starts_at: s.startsAt, label: s.label, iso: new Date(s.startsAt).toISOString() }))
+    }
+  }
+
+  if (input.name === 'book_demo') {
+    const raw = String(input.args.datetime_iso || input.args.preferred_time || '')
+    let startsAt = Number(raw)
+    if (!Number.isFinite(startsAt) || startsAt < 1e11) {
+      const parsed = Date.parse(raw)
+      startsAt = Number.isFinite(parsed) ? parsed : NaN
+    }
+    const booked = await bookDemoAppointment({
+      shopId,
+      leadId: leadId || null,
+      businessName: String(input.args.business_name || ''),
+      contactName: String(input.args.contact_name || ''),
+      phone: String(input.args.phone || ''),
+      email: String(input.args.email || ''),
+      startsAt,
+      source: direction === 'inbound' ? 'inbound_call' : 'outbound_call',
+      notes: 'Booked by voice agent'
+    })
+    if (!booked.ok) {
+      await log('failed', booked.error)
+      return { ok: false, message: booked.error }
+    }
+    await log('interested', booked.message)
+    await notifyShop(shopId, 'demo_booked', {
+      leadId: booked.leadId,
+      demoId: booked.id,
+      when: booked.label
+    })
+    return { ok: true, message: booked.message, demo_id: booked.id, when: booked.label }
+  }
+
+  if (input.name === 'mark_interested') {
     const preferred = String(input.args.preferred_time || input.args.datetime_iso || '')
     if (leadId) {
       await db
@@ -83,11 +136,16 @@ export async function dispatchAgentTool(input: {
           notes: preferred ? `Demo preference: ${preferred}` : undefined,
           updatedAt: now
         })
-        .where(and(eq(salesLeads.id, leadId), eq(salesLeads.shopId, input.shopId)))
+        .where(and(eq(salesLeads.id, leadId), eq(salesLeads.shopId, shopId)))
     }
     await log('interested', preferred || 'Lead marked interested')
-    await notifyShop(input.shopId, 'lead_interested', { leadId, preferred })
-    return { ok: true, message: 'Marked interested' }
+    await notifyShop(shopId, 'lead_interested', { leadId, preferred })
+    return {
+      ok: true,
+      message: preferred
+        ? `Noted interest for ${preferred}. Next use list_demo_slots and book_demo to lock a calendar time.`
+        : 'Marked interested. Offer two calendar times with list_demo_slots.'
+    }
   }
 
   if (input.name === 'mark_not_interested') {
@@ -96,7 +154,7 @@ export async function dispatchAgentTool(input: {
       await db
         .update(salesLeads)
         .set({ status: 'not_interested', notes: reason, updatedAt: now })
-        .where(and(eq(salesLeads.id, leadId), eq(salesLeads.shopId, input.shopId)))
+        .where(and(eq(salesLeads.id, leadId), eq(salesLeads.shopId, shopId)))
     }
     await log('not_interested', reason)
     return { ok: true, message: 'Marked not interested' }
@@ -108,21 +166,21 @@ export async function dispatchAgentTool(input: {
       const [lead] = await db
         .select()
         .from(salesLeads)
-        .where(and(eq(salesLeads.id, leadId), eq(salesLeads.shopId, input.shopId)))
+        .where(and(eq(salesLeads.id, leadId), eq(salesLeads.shopId, shopId)))
         .limit(1)
       digits = lead?.phoneDigits || ''
       const plan = markDncPlan({
-        shopId: input.shopId,
+        shopId,
         leadId,
         phoneDigits: digits
       })
       await db
         .update(salesLeads)
         .set({ status: plan.leadUpdate.status, updatedAt: now })
-        .where(and(eq(salesLeads.id, leadId), eq(salesLeads.shopId, input.shopId)))
+        .where(and(eq(salesLeads.id, leadId), eq(salesLeads.shopId, shopId)))
     }
     if (digits) {
-      const plan = markDncPlan({ shopId: input.shopId, leadId, phoneDigits: digits })
+      const plan = markDncPlan({ shopId, leadId, phoneDigits: digits })
       if (plan.dncInsert) {
         await db
           .insert(dncPhones)
@@ -150,7 +208,7 @@ export async function dispatchAgentTool(input: {
     }
     const transferred = await transferCall(callId, transferTo)
     await log('in_progress', transferred.ok ? `Transferring to ${transferTo}` : transferred.error)
-    await notifyShop(input.shopId, 'warm_transfer', { leadId, transferTo, callId })
+    await notifyShop(shopId, 'warm_transfer', { leadId, transferTo, callId })
     return transferred.ok
       ? { ok: true, message: 'Transfer started' }
       : { ok: false, message: transferred.error }
@@ -189,4 +247,46 @@ export async function recordComplianceViolation(input: {
     detail: input.detail || '',
     createdAt: Date.now()
   })
+}
+
+/** Upsert a sales lead from an inbound caller phone. */
+export async function ensureInboundLead(shopId: string, fromPhone: string) {
+  const normalized = normalizeUsPhone(fromPhone)
+  if (!normalized.ok || !shopId) return null
+  const now = Date.now()
+  const [existing] = await db
+    .select()
+    .from(salesLeads)
+    .where(and(eq(salesLeads.shopId, shopId), eq(salesLeads.phoneDigits, normalized.digits)))
+    .limit(1)
+  if (existing) {
+    await db
+      .update(salesLeads)
+      .set({ lastContactedAt: now, updatedAt: now })
+      .where(eq(salesLeads.id, existing.id))
+    return existing.id
+  }
+  const id = `LEAD-IN-${normalized.digits}-${now}`
+  await db.insert(salesLeads).values({
+    id,
+    shopId,
+    businessName: 'Inbound caller',
+    phone: normalized.formatted,
+    phoneDigits: normalized.digits,
+    address: '',
+    website: null,
+    rating: null,
+    reviewCount: null,
+    placeId: `inbound-${normalized.digits}`,
+    source: 'inbound_call',
+    campaign: '',
+    status: 'contacted',
+    notes: 'Created from inbound sales call',
+    attempts: 1,
+    retryAfter: null,
+    createdAt: now,
+    lastContactedAt: now,
+    updatedAt: now
+  })
+  return id
 }

@@ -200,3 +200,29 @@ export const complianceViolations = pgTable(
   },
   table => [index('compliance_violations_shop_idx').on(table.shopId)]
 )
+
+/** Buyer demo appointments with AutoGaragify sales (not shop repair bookings). */
+export const demoAppointments = pgTable(
+  'demo_appointments',
+  {
+    id: text('id').primaryKey(),
+    shopId: text('shop_id').notNull(),
+    leadId: text('lead_id'),
+    businessName: text('business_name').notNull().default(''),
+    contactName: text('contact_name').notNull().default(''),
+    phone: text('phone').notNull().default(''),
+    email: text('email').notNull().default(''),
+    startsAt: bigint('starts_at', { mode: 'number' }).notNull(),
+    endsAt: bigint('ends_at', { mode: 'number' }).notNull(),
+    timezone: text('timezone').notNull().default('America/Chicago'),
+    status: text('status').notNull().default('scheduled'),
+    source: text('source').notNull().default('web'),
+    notes: text('notes').notNull().default(''),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+    updatedAt: bigint('updated_at', { mode: 'number' }).notNull()
+  },
+  table => [
+    index('demo_appointments_shop_starts_idx').on(table.shopId, table.startsAt),
+    index('demo_appointments_shop_status_idx').on(table.shopId, table.status)
+  ]
+)
