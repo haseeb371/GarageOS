@@ -116,29 +116,37 @@ export async function POST(req: NextRequest) {
   const shopId = resolveShopId(clientState, toNumber)
   const now = Date.now()
 
-  if (eventType === 'call.initiated' && direction === 'inbound') {
-    await db.insert(contactLogs).values({
-      shopId,
-      leadId: null,
-      actorId: 'telnyx-inbound',
-      outcome: 'in_progress',
-      detail: `Inbound from ${String(payload.from || '')}${shopId ? '' : ' · unmatched shop'}`,
-      direction: 'inbound',
-      telnyxCallId: callControlId,
-      status: 'in_progress',
-      transcript: [],
-      recordingUrl: null,
-      durationSeconds: null,
-      aiDisclosure: true,
-      endedAt: null,
-      createdAt: now,
-      updatedAt: now
-    })
+  if (eventType === 'call.initiated') {
+    const existing = await findLogByCallId(callControlId)
+    if (!existing) {
+      await db.insert(contactLogs).values({
+        shopId,
+        leadId: clientState.leadId && clientState.leadId !== 'TEST-CALL' ? clientState.leadId : null,
+        actorId: direction === 'inbound' ? 'telnyx-inbound' : 'telnyx-outbound',
+        outcome: direction === 'inbound' ? 'in_progress' : 'dialing',
+        detail:
+          direction === 'inbound'
+            ? `Inbound from ${String(payload.from || '')}${shopId ? '' : ' · unmatched shop'}`
+            : `Outbound to ${String(payload.to || '')}${clientState.campaign ? ` · ${clientState.campaign}` : ''}`,
+        direction,
+        telnyxCallId: callControlId,
+        status: direction === 'inbound' ? 'in_progress' : 'dialing',
+        transcript: [],
+        recordingUrl: null,
+        durationSeconds: null,
+        aiDisclosure: true,
+        endedAt: null,
+        createdAt: now,
+        updatedAt: now
+      })
+    }
 
-    if (!getConfig().TELNYX_ASSISTANT_ID) {
-      await answerWithUnavailableTts(callControlId)
-    } else {
-      await answerWithAssistant(callControlId, 'inbound')
+    if (direction === 'inbound') {
+      if (!getConfig().TELNYX_ASSISTANT_ID) {
+        await answerWithUnavailableTts(callControlId)
+      } else {
+        await answerWithAssistant(callControlId, 'inbound')
+      }
     }
     return NextResponse.json({ ok: true, shopId })
   }
@@ -150,6 +158,25 @@ export async function POST(req: NextRequest) {
         .update(contactLogs)
         .set({ status: 'in_progress', outcome: 'in_progress', updatedAt: now })
         .where(eq(contactLogs.id, log.id))
+    } else if (shopId || clientState.leadId) {
+      // Outbound answered before initiated webhook — still keep a trackable row.
+      await db.insert(contactLogs).values({
+        shopId,
+        leadId: clientState.leadId && clientState.leadId !== 'TEST-CALL' ? clientState.leadId : null,
+        actorId: 'telnyx-outbound',
+        outcome: 'in_progress',
+        detail: `Outbound answered · ${String(payload.to || '')}`,
+        direction: 'outbound',
+        telnyxCallId: callControlId,
+        status: 'in_progress',
+        transcript: [],
+        recordingUrl: null,
+        durationSeconds: null,
+        aiDisclosure: true,
+        endedAt: null,
+        createdAt: now,
+        updatedAt: now
+      })
     }
     return NextResponse.json({ ok: true })
   }

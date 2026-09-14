@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { and, count, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import { currentUser } from '@/lib/auth'
 import { db, ensureSchema } from '@/lib/db'
-import { salesLeads } from '@/lib/schema'
+import { contactLogs, salesLeads } from '@/lib/schema'
 import { LEAD_STATUSES } from '@/lib/leads'
 import { isDialerEnabled } from '@/lib/config'
 import { LeadsClient } from './LeadsClient'
@@ -94,6 +94,25 @@ export default async function LeadsPage({
     newByCampaignRows.map(r => [r.campaign || '', Number(r.value)])
   )
 
+  const recentLogs = await db
+    .select({
+      id: contactLogs.id,
+      leadId: contactLogs.leadId,
+      outcome: contactLogs.outcome,
+      status: contactLogs.status,
+      detail: contactLogs.detail,
+      direction: contactLogs.direction,
+      durationSeconds: contactLogs.durationSeconds,
+      createdAt: contactLogs.createdAt,
+      businessName: salesLeads.businessName,
+      phone: salesLeads.phone
+    })
+    .from(contactLogs)
+    .leftJoin(salesLeads, eq(contactLogs.leadId, salesLeads.id))
+    .where(eq(contactLogs.shopId, user.shopId))
+    .orderBy(desc(contactLogs.createdAt))
+    .limit(8)
+
   return (
     <LeadsClient
       leads={leads.map(l => ({
@@ -107,6 +126,18 @@ export default async function LeadsPage({
         source: l.source,
         campaign: l.campaign,
         lastContactedAt: l.lastContactedAt
+      }))}
+      recentCalls={recentLogs.map(r => ({
+        id: r.id,
+        leadId: r.leadId,
+        businessName: r.businessName,
+        phone: r.phone,
+        outcome: r.outcome,
+        status: r.status,
+        detail: r.detail,
+        direction: r.direction,
+        durationSeconds: r.durationSeconds,
+        createdAt: r.createdAt
       }))}
       total={total}
       page={page}

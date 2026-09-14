@@ -26,8 +26,22 @@ type Stats = {
   dnc: number
 }
 
+type RecentCall = {
+  id: number
+  leadId: string | null
+  businessName: string | null
+  phone: string | null
+  outcome: string
+  status: string
+  detail: string
+  direction: string
+  durationSeconds: number | null
+  createdAt: number
+}
+
 export function LeadsClient(props: {
   leads: LeadRow[]
+  recentCalls: RecentCall[]
   total: number
   page: number
   pageSize: number
@@ -53,7 +67,7 @@ export function LeadsClient(props: {
   const campaignNew = startTarget ? props.campaignNewCounts[startTarget] || 0 : 0
   const hasNewLeads = selectedNew > 0 || (startTarget ? campaignNew > 0 : false)
   const startDisabledReason = !props.dialerEnabled
-    ? 'DIALER_ENABLED=false — enable after legal review'
+    ? 'Mass dialer is off until legal review'
     : !startTarget
       ? 'Enter or select a campaign name'
       : !hasNewLeads
@@ -177,13 +191,13 @@ export function LeadsClient(props: {
 
   return (
     <main className="leads-page">
-      <header className="leads-head">
+      <div className="leads-head">
         <div>
           <p className="eyebrow">AutoGaragify sales</p>
           <h1>Leads</h1>
           <p className="compliance-banner">
-            Outbound AI calling requires B2B-only targets, AI disclosure, and DNC compliance. Confirm
-            your legal review before enabling DIALER_ENABLED.
+            Outbound calling is for B2B shop owners only. Keep automated disclosure on, honor Do Not
+            Call, and finish legal review before turning on the mass dialer.
           </p>
         </div>
         <div className="leads-actions">
@@ -197,7 +211,7 @@ export function LeadsClient(props: {
             Import CSV
           </Link>
         </div>
-      </header>
+      </div>
 
       <div className="leads-stats">
         <span>
@@ -219,6 +233,37 @@ export function LeadsClient(props: {
           <b>{props.stats.dnc}</b> dnc
         </span>
       </div>
+
+      <section className="card recent-calls">
+        <h2>Recent calls</h2>
+        {props.recentCalls.length ? (
+          <ul className="recent-calls-list">
+            {props.recentCalls.map(call => (
+              <li key={call.id}>
+                <div>
+                  <strong>{call.businessName || call.detail || 'Unknown contact'}</strong>
+                  <small className="muted">
+                    {call.phone || '—'} · {call.direction} · {new Date(call.createdAt).toLocaleString()}
+                    {call.durationSeconds != null ? ` · ${call.durationSeconds}s` : ''}
+                  </small>
+                </div>
+                <div className="recent-calls-meta">
+                  <span className={`pill ${call.outcome}`}>{call.outcome}</span>
+                  {call.leadId ? (
+                    <Link href={`/leads/${encodeURIComponent(call.leadId)}/transcript`}>
+                      Transcript
+                    </Link>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted" style={{ margin: 0 }}>
+            No calls logged yet. After a test or campaign call, outcomes and transcripts show here.
+          </p>
+        )}
+      </section>
 
       <form className="leads-filters" method="get" action="/leads">
         <label>
@@ -280,7 +325,7 @@ export function LeadsClient(props: {
         >
           Start campaign
         </button>
-        {startDisabledReason ? <small className="muted">{startDisabledReason}</small> : null}
+        {startDisabledReason ? <small className="muted dialer-status">{startDisabledReason}</small> : null}
       </div>
 
       <div className="card table-card">
@@ -332,7 +377,7 @@ export function LeadsClient(props: {
                       title={
                         props.dialerEnabled
                           ? 'Place outbound AI call now'
-                          : 'DIALER_ENABLED=false'
+                          : 'Mass dialer is off — tracked test calls still work from the team'
                       }
                       onClick={() => callLead(lead.id)}
                     >
@@ -353,7 +398,7 @@ export function LeadsClient(props: {
             {!props.leads.length ? (
               <tr>
                 <td colSpan={8}>
-                  No leads yet. <Link href="/leads/import">Import auto_repair_leads.csv</Link>
+                  No leads for this shop yet. <Link href="/leads/import">Import CSV</Link>
                 </td>
               </tr>
             ) : null}
