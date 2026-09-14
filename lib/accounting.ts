@@ -186,6 +186,39 @@ function interpretWebhookFailure(status: number, text: string, url: string) {
   return `Zapier/webhook returned HTTP ${status}${body ? `: ${body.slice(0, 160)}` : '.'}`
 }
 
+export type AccountingEntity = {
+  kind: 'invoice' | 'payment'
+  id: string
+  date: string
+  amount: number
+  customer: string
+  repairOrder: string
+  invoiceId?: string
+  method?: string
+  status: string
+  description: string
+}
+
+export function includeAccountingEntities() {
+  const raw = String(process.env.ACCOUNTING_INCLUDE_ENTITIES || 'true').trim().toLowerCase()
+  return raw !== '0' && raw !== 'false' && raw !== 'off'
+}
+
+export function buildAccountingEntities(lines: JournalLine[]): AccountingEntity[] {
+  return lines.map(line => ({
+    kind: line.type === 'Invoice' ? 'invoice' : 'payment',
+    id: line.reference,
+    date: line.date,
+    amount: line.type === 'Invoice' ? line.debit : line.credit,
+    customer: line.customer,
+    repairOrder: line.repairOrder,
+    invoiceId: line.type === 'Payment' ? line.repairOrder : line.reference,
+    method: line.method || undefined,
+    status: line.status,
+    description: line.description
+  }))
+}
+
 export function buildAccountingJournal(
   invoices: Row[],
   payments: Row[],
@@ -221,11 +254,12 @@ export function buildAccountingJournal(
     const date = String(payment.date || '').slice(0, 10)
     if (!inRange(date)) continue
     const amount = Number(payment.amount || 0)
+    const customerId = String(payment.customerId || '')
     lines.push({
       date,
       type: 'Payment',
       reference: String(payment.id),
-      customer: '',
+      customer: customerId ? customerName(customerId) : '',
       repairOrder: String(payment.invoiceId || ''),
       description: `Payment for ${payment.invoiceId || payment.id}`,
       debit: 0,
@@ -312,6 +346,13 @@ async function pushWebhook(
         to: input.to || null,
         generatedAt: new Date().toISOString(),
         lines: input.lines,
+        ...(includeAccountingEntities()
+          ? {
+              entities: buildAccountingEntities(input.lines),
+              invoices: buildAccountingEntities(input.lines).filter(e => e.kind === 'invoice'),
+              payments: buildAccountingEntities(input.lines).filter(e => e.kind === 'payment')
+            }
+          : {}),
         totals: {
           invoiceDebits: input.lines.filter(line => line.type === 'Invoice').reduce((sum, line) => sum + line.debit, 0),
           paymentCredits: input.lines.filter(line => line.type === 'Payment').reduce((sum, line) => sum + line.credit, 0)
@@ -406,7 +447,7 @@ async function pushQuickBooks(input: {
     },
     body: JSON.stringify({
       DocNumber: `GO-${Date.now().toString().slice(-8)}`,
-      PrivateNote: `AutoGaragify sync · ${input.shopName} · ${input.from || 'all'} to ${input.to || 'all'}`,
+      PrivateNote: `AutoGaragify sync · ${input.shopName} · ${input.from || 'all'} to ${input.to || 'all'} · ${input.lines.filter(l => l.type === 'Invoice').length} invoices · ${input.lines.filter(l => l.type === 'Payment').length} payments`,
       Line: qboLines
     })
   })
@@ -428,13 +469,15 @@ async function pushQuickBooks(input: {
     }
   }
 
+  const invoiceCount = input.lines.filter(l => l.type === 'Invoice').length
+  const paymentCount = input.lines.filter(l => l.type === 'Payment').length
   return {
     ok: true as const,
     sandbox: false as const,
     mode: 'quickbooks' as const,
     recordsProcessed: input.lines.length,
     externalId: body.JournalEntry?.Id || '',
-    message: `Synced ${input.lines.length} line(s) to QuickBooks as journal entry ${body.JournalEntry?.Id || ''}.`
+    message: `Synced ${invoiceCount} invoice(s) and ${paymentCount} payment(s) to QuickBooks as journal entry ${body.JournalEntry?.Id || ''}.`
   }
 }
 
@@ -526,12 +569,14 @@ async function pushXero(input: {
   }
 
   const externalId = body.ManualJournals?.[0]?.ManualJournalID || ''
+  const invoiceCount = input.lines.filter(l => l.type === 'Invoice').length
+  const paymentCount = input.lines.filter(l => l.type === 'Payment').length
   return {
     ok: true as const,
     sandbox: false as const,
     mode: 'xero' as const,
     recordsProcessed: input.lines.length,
     externalId,
-    message: `Synced ${input.lines.length} line(s) to Xero as manual journal ${externalId}.`
+    message: `Synced ${invoiceCount} invoice(s) and ${paymentCount} payment(s) to Xero as manual journal ${externalId}.`
   }
 }

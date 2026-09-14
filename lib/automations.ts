@@ -54,6 +54,7 @@ export type AutomationContext = {
   payments?: Row[]
   automationJobs?: Row[]
   now?: number
+  messaging?: { smsLive?: boolean; emailLive?: boolean }
 }
 
 function matchesConditions(conditions: string, record: Row) {
@@ -121,9 +122,9 @@ function shouldRunTrigger(trigger: string, kind: Kind, record: Row, previous?: R
   return false
 }
 
-function reminderChannel() {
-  if (smsConfigured()) return 'SMS live'
-  if (emailConfigured()) return 'Email live'
+function reminderChannel(context: AutomationContext = {}) {
+  if (context.messaging?.smsLive || smsConfigured()) return 'SMS live'
+  if (context.messaging?.emailLive || emailConfigured()) return 'Email live'
   return 'SMS sandbox'
 }
 
@@ -179,7 +180,7 @@ function materializeAction(workflow: Row, kind: Kind, record: Row, context: Auto
         dueDate: new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10),
         dueMileage: 0,
         status: 'Due soon',
-        channel: reminderChannel(),
+        channel: reminderChannel(context),
         lastSentAt: null,
         notes: `Created automatically by ${workflow.name}.`,
         automationId: workflow.id,
@@ -228,7 +229,7 @@ function materializeAction(workflow: Row, kind: Kind, record: Row, context: Auto
     const segment = declinedWorkSegment(orders, context.customers || [], context.vehicles || [])
     if (segment.length) {
       const campaign = buildDeclinedWorkCampaign(segment)
-      campaign.channel = reminderChannel()
+      campaign.channel = reminderChannel(context)
       effects.push({
         kind: 'campaigns',
         record: {
@@ -255,7 +256,7 @@ function materializeAction(workflow: Row, kind: Kind, record: Row, context: Auto
             platform: 'Google'
           })
         : `Thanks for visiting ${shop?.name || 'us'}! Please leave a review when you can.`
-      const live = smsConfigured() || emailConfigured()
+      const live = Boolean(context.messaging?.smsLive || context.messaging?.emailLive || smsConfigured() || emailConfigured())
       effects.push({
         kind: 'reviews',
         record: {

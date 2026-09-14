@@ -2,6 +2,7 @@ import 'server-only'
 import { createHash, randomBytes, randomUUID } from 'crypto'
 import { and, eq, gt } from 'drizzle-orm'
 import { db, ensureSchema } from './db'
+import { buildFinancingOffer } from './financing'
 import { auditLog, estimateApprovalLinks, records } from './schema'
 
 type Data = Record<string, any> & { id: string }
@@ -39,16 +40,42 @@ export async function getEstimateApproval(token: string) {
     db.select().from(records).where(and(eq(records.kind, 'shops'), eq(records.shopId, link.shopId))).limit(1).then(rows => rows[0] ? JSON.parse(rows[0].data) as Data : null)
   ])
   if (!customer || !vehicle) return { state: 'invalid' as const }
+  const taxRate = Number(order.taxRate || 0)
+  const fees = Number(order.fees || 0)
+  const discount = Number(order.discount || 0)
+  const jobs = (order.jobs || []).map((job: Data) => ({
+    id: job.id,
+    name: job.name,
+    type: job.type,
+    laborHours: Number(job.laborHours || 0),
+    laborRate: Number(job.laborRate || 0),
+    partsPrice: Number(job.partsPrice || 0),
+    decision: job.decision || 'Pending',
+    severity: job.severity || 'Monitor'
+  }))
+  const subtotal = jobs.reduce(
+    (sum: number, job: { laborHours: number; laborRate: number; partsPrice: number }) =>
+      sum + job.laborHours * job.laborRate + job.partsPrice,
+    0
+  )
+  const estimateTotal = Math.max(0, (subtotal + fees - discount) * (1 + taxRate / 100))
+  const shopName = String(shop?.name || 'AutoGaragify repair shop')
+  const financing = buildFinancingOffer(estimateTotal, shopName, String(order.id), {
+    orderId: String(order.id),
+    baseUrl: process.env.APP_URL
+  })
   return {
     state: link.status === 'Responded' ? 'responded' as const : 'open' as const,
     expiresAt: link.expiresAt,
-    shop: { name: shop?.name || 'AutoGaragify repair shop', phone: shop?.phone || '', address: shop?.address || '' },
+    shop: { name: shopName, phone: shop?.phone || '', address: shop?.address || '' },
     customer: { name: customer.name },
     vehicle: { year: vehicle.year, make: vehicle.make, model: vehicle.model, plate: vehicle.plate, mileage: vehicle.mileage },
     order: {
-      id: order.id, taxRate: Number(order.taxRate || 0), fees: Number(order.fees || 0), discount: Number(order.discount || 0),
-      jobs: (order.jobs || []).map((job: Data) => ({ id: job.id, name: job.name, type: job.type, laborHours: Number(job.laborHours || 0), laborRate: Number(job.laborRate || 0), partsPrice: Number(job.partsPrice || 0), decision: job.decision || 'Pending', severity: job.severity || 'Monitor' }))
-    }
+      id: order.id, taxRate, fees, discount,
+      jobs
+    },
+    estimateTotal,
+    financing
   }
 }
 

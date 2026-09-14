@@ -12,6 +12,7 @@ import {
   preferredReviewUrl,
   shopReviewLinks
 } from '@/lib/reviews'
+import { loadProviderCredentials, resolveEmailCreds, resolveSmsCreds } from '@/lib/providerCredentials'
 
 type Row = Record<string, unknown> & { id: string }
 
@@ -50,6 +51,10 @@ export async function POST(req: NextRequest) {
   const customer = (grouped.customers || []).find(row => row.id === parsed.data.customerId)
   if (!customer) return responseError('Customer not found.')
 
+  const shopCreds = await loadProviderCredentials(user.shopId)
+  const smsCreds = resolveSmsCreds(shopCreds)
+  const emailCreds = resolveEmailCreds(shopCreds)
+
   const reviewUrl = preferredReviewUrl(shop, parsed.data.platform)
   if (!reviewUrl) {
     return responseError(
@@ -80,7 +85,7 @@ export async function POST(req: NextRequest) {
     if (isSmsOptedOut(customer)) return responseError('Customer opted out of SMS.')
     const to = normalizePhone(String(customer.phone || ''))
     if (!to) return responseError('Customer has no phone number.')
-    const result = await sendSms({ to, body: message })
+    const result = await sendSms({ to, body: message }, smsCreds)
     if (!result.ok) return responseError(result.error, result.sandbox ? 503 : 400)
 
     const now = Date.now()
@@ -125,7 +130,7 @@ export async function POST(req: NextRequest) {
     subject: `Thanks from ${shop?.name || 'AutoGaragify'} — leave a quick review?`,
     html: `<p>${message.replace(reviewUrl, `<a href="${reviewUrl}">${reviewUrl}</a>`)}</p>`,
     text: message
-  })
+  }, emailCreds)
   if (!result.ok) return responseError(result.error, result.sandbox ? 503 : 400)
 
   const now = Date.now()

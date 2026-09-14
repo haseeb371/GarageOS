@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { currentUser } from '@/lib/auth'
-import { emailConfigured, emailFrom, emailSetupChecklist } from '@/lib/email'
+import { emailConfigured, emailFrom, emailProviderLabel, emailSetupChecklist } from '@/lib/email'
 import { loadProviderCredentials, resolveEmailCreds } from '@/lib/providerCredentials'
 
 export const dynamic = 'force-dynamic'
@@ -13,19 +13,25 @@ export async function GET() {
   const creds = resolveEmailCreds(shop)
   const configured = emailConfigured(creds)
   const checklist = emailSetupChecklist(creds)
+  const provider = emailProviderLabel(creds)
 
   return NextResponse.json({
     configured,
-    provider: 'Resend',
+    provider,
     from: configured ? emailFrom(creds) : '',
     domain: checklist.domain,
     testingMode: checklist.testingMode,
-    source: shop.email.apiKey || shop.email.from ? 'shop' : creds.apiKey ? 'env' : 'none',
+    source:
+      shop.email.apiKey || shop.email.from
+        ? 'shop'
+        : creds.apiKey || creds.provider === 'smtp'
+          ? 'env'
+          : 'none',
     message: !configured
-      ? 'Paste Resend API key + From in Ops → Support & compliance (or .env.local).'
+      ? 'Add SendGrid, Resend, or SMTP credentials (plus From address) in Vercel env or Ops.'
       : checklist.testingMode
-        ? `Test sender active (${emailFrom(creds)}). Can only email your Resend account address until a custom domain is verified.`
-        : `Live email ready from ${emailFrom(creds)}.`,
+        ? `Test sender active (${emailFrom(creds)}).`
+        : `Live email ready via ${provider} from ${emailFrom(creds)}.`,
     checklist: checklist.steps,
     setup: checklist.setup
   })

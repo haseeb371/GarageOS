@@ -5,7 +5,7 @@ import { db } from '@/lib/db'
 import { auditLog, records } from '@/lib/schema'
 import { and, eq } from 'drizzle-orm'
 import { validateBookingTime } from '@/lib/booking'
-import { planAutomationsForSave } from '@/lib/automationRuntime'
+import { planAutomationsForSave, loadMessagingFlags } from '@/lib/automationRuntime'
 
 const input = z.object({
   shopId: z.string().min(1),
@@ -59,6 +59,7 @@ export async function POST(request: Request) {
   const vehicle = { id: vehicleId, customerId, year: parsed.data.year, make: parsed.data.make, model: parsed.data.model, mileage: parsed.data.mileage, vin: '', plate: '', fleet: false }
   const appointment = { id: appointmentId, customerId, vehicleId, locationId: parsed.data.shopId, date: parsed.data.date, time: parsed.data.time, service: parsed.data.service, status: 'Pending', source: 'Online booking' }
 
+  const messaging = await loadMessagingFlags(tenantId)
   const automations = planAutomationsForSave('appointments', appointment, (state.workflowAutomations as never[]) || [], {
     previous: null,
     customers: (state.customers as never[]) || [],
@@ -69,7 +70,8 @@ export async function POST(request: Request) {
     shops: (state.shops as never[]) || [],
     appointments: [...((state.appointments as never[]) || []), appointment as never],
     payments: (state.payments as never[]) || [],
-    automationJobs: (state.automationJobs as never[]) || []
+    automationJobs: (state.automationJobs as never[]) || [],
+    messaging
   })
 
   await db.transaction(async tx => {

@@ -1,3 +1,4 @@
+import { createTransport } from 'nodemailer'
 import type { EmailCreds } from './providerCredentials'
 import { resolveEmailCreds } from './providerCredentials'
 
@@ -13,6 +14,11 @@ function fromAddress(from: string) {
   return (match?.[1] || from).trim().toLowerCase()
 }
 
+function fromName(from: string) {
+  const match = from.match(/^(.*)<([^>]+)>$/)
+  return match ? match[1].trim().replace(/^["']|["']$/g, '') : ''
+}
+
 function fromDomain(from: string) {
   const address = fromAddress(from)
   const at = address.lastIndexOf('@')
@@ -26,6 +32,7 @@ function isOnboarding(from: string) {
 
 export function emailConfigured(creds?: EmailCreds | null) {
   const resolved = creds || resolveEmailCreds()
+  if (resolved.provider === 'smtp') return Boolean(resolved.from && process.env.SMTP_USER && process.env.SMTP_PASS)
   return Boolean(resolved.apiKey && resolved.from)
 }
 
@@ -42,74 +49,85 @@ export function emailFromDomain(creds?: EmailCreds | null) {
 }
 
 export function emailIsResendOnboarding(creds?: EmailCreds | null) {
-  return isOnboarding(emailFrom(creds))
+  const resolved = creds || resolveEmailCreds()
+  return resolved.provider === 'resend' && isOnboarding(resolved.from)
+}
+
+export function emailProviderLabel(creds?: EmailCreds | null) {
+  const resolved = creds || resolveEmailCreds()
+  if (resolved.provider === 'sendgrid') return 'SendGrid'
+  if (resolved.provider === 'smtp') return 'SMTP'
+  if (resolved.provider === 'resend') return 'Resend'
+  return 'Email'
 }
 
 export function emailSetupChecklist(creds?: EmailCreds | null) {
   const resolved = creds || resolveEmailCreds()
-  const key = Boolean(resolved.apiKey)
+  const key = Boolean(resolved.apiKey) || resolved.provider === 'smtp'
   const from = resolved.from
   const domain = fromDomain(from)
-  const onboarding = isOnboarding(from)
-  const configured = Boolean(key && from)
+  const onboarding = emailIsResendOnboarding(resolved)
+  const configured = emailConfigured(resolved)
+  const provider = emailProviderLabel(resolved)
 
   return {
     configured,
     from,
     domain,
     testingMode: onboarding,
+    provider: resolved.provider || '',
     steps: [
       {
         id: 'api-key',
-        label: 'Resend API key',
+        label: `${provider} credentials`,
         done: key,
-        detail: key ? 'Present (shop settings or .env.local)' : 'Paste in Ops → Support & compliance, or set RESEND_API_KEY'
+        detail: key
+          ? `Using ${provider}`
+          : 'Set RESEND_API_KEY, SENDGRID_API_KEY, or SMTP_USER/SMTP_PASS'
       },
       {
         id: 'from',
         label: 'From address',
         done: Boolean(from),
-        detail: from || 'Example: AutoGaragify <onboarding@resend.dev> for testing'
+        detail: from || 'Set EMAIL_FROM or FROM_NAME + FROM_EMAIL'
       },
       {
         id: 'domain',
-        label: onboarding ? 'Using Resend test sender' : 'Custom domain in From',
+        label: onboarding ? 'Using Resend test sender' : `From domain (${domain || 'unset'})`,
         done: Boolean(domain),
         detail: onboarding
-          ? 'onboarding@resend.dev can only send to your Resend account email until a domain is verified.'
-          : `From domain: ${domain}. Verify this domain in Resend (DNS SPF/DKIM) before sending to customers.`
+          ? 'onboarding@resend.dev can only send to your Resend account email.'
+          : `From domain: ${domain || '—'}`
       },
       {
         id: 'production',
-        label: 'Production domain verified',
+        label: 'Ready to send',
         done: configured && !onboarding,
-        detail: onboarding
-          ? 'Add your domain in Resend → Domains, add DNS at your DNS host, then set From to an address on that domain.'
-          : 'Custom from-address configured. Confirm the domain shows Verified in the Resend dashboard.'
+        detail: configured
+          ? `${provider} configured for ${from}`
+          : 'Add provider credentials and a From address.'
       }
     ],
     setup: [
-      'Sign up at https://resend.com and create an API key',
-      'Paste the key + From address in Ops (or .env.local)',
-      'For quick tests: AutoGaragify <onboarding@resend.dev> (only emails your Resend login)',
-      'For customers: Resend → Domains → Add domain → copy DNS to Cloudflare/Namecheap/etc.',
-      'When Verified, set From to Your Shop <service@your-domain.com>',
-      'Use Send test email'
+      'Preferred: RESEND_API_KEY or SENDGRID_API_KEY + FROM_EMAIL/FROM_NAME',
+      'Fallback: SMTP_HOST / SMTP_USER / SMTP_PASS / SMTP_PORT',
+      'Shop Ops can still paste Resend keys per shop',
+      'Use Send test email in Ops'
     ]
   }
 }
 
 export function interpretResendError(
   status: number,
-  body: { message?: string; name?: string },
+  body: { message?: string; name?: string; errors?: Array<{ message?: string }> },
   creds?: EmailCreds | null
 ) {
-  const message = String(body.message || body.name || '').trim()
+  const message = String(body.message || body.name || body.errors?.[0]?.message || '').trim()
   const lower = message.toLowerCase()
   const domain = emailFromDomain(creds)
 
   if (status === 401 || lower.includes('api key') || lower.includes('unauthorized')) {
-    return 'Resend rejected the API key. Update it in Ops → Support & compliance (or RESEND_API_KEY).'
+    return 'Email provider rejected the API key. Check RESEND_API_KEY or SENDGRID_API_KEY.'
   }
 
   if (
@@ -118,49 +136,21 @@ export function interpretResendError(
     lower.includes('from address') ||
     lower.includes('invalid from')
   ) {
-    return `${message || 'From address/domain not allowed.'} Verify the domain for ${domain || 'your From address'} in Resend, or temporarily use onboarding@resend.dev for self-tests only.`
-  }
-
-  if (lower.includes('only send') || lower.includes('testing emails') || lower.includes('own email')) {
-    return `${message} While using onboarding@resend.dev, Resend only delivers to your Resend account email. Verify a domain to email customers.`
+    return `${message || 'From address/domain not allowed.'} Verify ${domain || 'your From domain'} with the email provider.`
   }
 
   if (status === 403) {
-    return message || 'Resend forbidden this send. Usually the from-domain is unverified or the recipient is blocked in test mode.'
+    return message || 'Email provider forbidden this send.'
   }
 
   if (status === 429) {
-    return 'Resend rate limit hit. Wait a minute and try again.'
+    return 'Email rate limit hit. Wait a minute and try again.'
   }
 
-  return message || `Resend returned ${status}.`
+  return message || `Email provider returned ${status}.`
 }
 
-export async function sendEmail(payload: EmailPayload, creds?: EmailCreds | null) {
-  const resolved = creds || resolveEmailCreds()
-  if (!resolved.apiKey || !resolved.from) {
-    return {
-      ok: false as const,
-      sandbox: true as const,
-      error: 'Add a Resend API key and From address in Ops → Support & compliance (or .env.local).'
-    }
-  }
-
-  const to = Array.isArray(payload.to) ? payload.to : [payload.to]
-  const recipients = to.map(value => String(value || '').trim().toLowerCase()).filter(Boolean)
-  if (!recipients.length) {
-    return { ok: false as const, sandbox: false as const, error: 'A recipient email address is required.' }
-  }
-
-  if (isOnboarding(resolved.from) && recipients.length > 1) {
-    return {
-      ok: false as const,
-      sandbox: false as const,
-      error:
-        'From uses onboarding@resend.dev (test mode). Resend only allows sending to your own account email until you verify a custom domain.'
-    }
-  }
-
+async function sendWithResend(payload: EmailPayload, resolved: EmailCreds, recipients: string[]) {
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -175,9 +165,47 @@ export async function sendEmail(payload: EmailPayload, creds?: EmailCreds | null
       text: payload.text || payload.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
     })
   })
-
   const body = (await response.json().catch(() => ({}))) as { id?: string; message?: string; name?: string }
   if (!response.ok) {
+    return { ok: false as const, sandbox: false as const, error: interpretResendError(response.status, body, resolved) }
+  }
+  return {
+    ok: true as const,
+    sandbox: false as const,
+    id: body.id || '',
+    testingMode: isOnboarding(resolved.from),
+    provider: 'resend' as const
+  }
+}
+
+async function sendWithSendgrid(payload: EmailPayload, resolved: EmailCreds, recipients: string[]) {
+  const email = fromAddress(resolved.from)
+  const name = fromName(resolved.from)
+  const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${resolved.apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      personalizations: [{ to: recipients.map(value => ({ email: value })) }],
+      from: name ? { email, name } : { email },
+      subject: payload.subject,
+      content: [
+        {
+          type: 'text/plain',
+          value: payload.text || payload.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+        },
+        { type: 'text/html', value: payload.html }
+      ]
+    })
+  })
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as {
+      message?: string
+      errors?: Array<{ message?: string }>
+    }
     return {
       ok: false as const,
       sandbox: false as const,
@@ -185,10 +213,79 @@ export async function sendEmail(payload: EmailPayload, creds?: EmailCreds | null
     }
   }
 
+  const id = response.headers.get('x-message-id') || ''
+  return { ok: true as const, sandbox: false as const, id, testingMode: false, provider: 'sendgrid' as const }
+}
+
+async function sendWithSmtp(payload: EmailPayload, resolved: EmailCreds, recipients: string[]) {
+  const host = String(process.env.SMTP_HOST || 'smtp.gmail.com').trim()
+  const port = Number(process.env.SMTP_PORT || 587)
+  const user = String(process.env.SMTP_USER || '').trim()
+  const pass = String(process.env.SMTP_PASS || '').trim().replace(/^["']|["']$/g, '')
+  const secure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || port === 465
+
+  if (!user || !pass) {
+    return { ok: false as const, sandbox: true as const, error: 'SMTP_USER and SMTP_PASS are required for SMTP email.' }
+  }
+
+  const transporter = createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass }
+  })
+
+  const info = await transporter.sendMail({
+    from: resolved.from,
+    to: recipients.join(', '),
+    subject: payload.subject,
+    html: payload.html,
+    text: payload.text || payload.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  })
+
   return {
     ok: true as const,
     sandbox: false as const,
-    id: body.id || '',
-    testingMode: isOnboarding(resolved.from)
+    id: String(info.messageId || ''),
+    testingMode: false,
+    provider: 'smtp' as const
+  }
+}
+
+export async function sendEmail(payload: EmailPayload, creds?: EmailCreds | null) {
+  const resolved = creds || resolveEmailCreds()
+  if (!emailConfigured(resolved)) {
+    return {
+      ok: false as const,
+      sandbox: true as const,
+      error: 'Add Resend, SendGrid, or SMTP credentials plus a From address, then retry.'
+    }
+  }
+
+  const to = Array.isArray(payload.to) ? payload.to : [payload.to]
+  const recipients = to.map(value => String(value || '').trim().toLowerCase()).filter(Boolean)
+  if (!recipients.length) {
+    return { ok: false as const, sandbox: false as const, error: 'A recipient email address is required.' }
+  }
+
+  if (resolved.provider === 'resend' && isOnboarding(resolved.from) && recipients.length > 1) {
+    return {
+      ok: false as const,
+      sandbox: false as const,
+      error:
+        'From uses onboarding@resend.dev (test mode). Resend only allows sending to your own account email until you verify a custom domain.'
+    }
+  }
+
+  try {
+    if (resolved.provider === 'sendgrid') return await sendWithSendgrid(payload, resolved, recipients)
+    if (resolved.provider === 'smtp') return await sendWithSmtp(payload, resolved, recipients)
+    return await sendWithResend(payload, resolved, recipients)
+  } catch (error) {
+    return {
+      ok: false as const,
+      sandbox: false as const,
+      error: error instanceof Error ? error.message : 'Email send failed.'
+    }
   }
 }

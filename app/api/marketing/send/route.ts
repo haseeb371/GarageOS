@@ -12,6 +12,11 @@ import {
   renderCampaignTemplate,
   simulateCampaignSend
 } from '@/lib/marketing'
+import {
+  loadProviderCredentials,
+  resolveEmailCreds,
+  resolveSmsCreds
+} from '@/lib/providerCredentials'
 
 type Row = Record<string, unknown> & { id: string }
 
@@ -66,6 +71,10 @@ export async function POST(req: NextRequest) {
   const campaign = (data.campaigns || []).find(row => row.id === parsed.data.campaignId)
   if (!campaign) return responseError('Campaign not found.')
 
+  const shopCreds = await loadProviderCredentials(user.shopId)
+  const smsCreds = resolveSmsCreds(shopCreds)
+  const emailCreds = resolveEmailCreds(shopCreds)
+
   const segment = declinedWorkSegment(data.orders || [], data.customers || [], data.vehicles || [])
   const preview = campaignAudiencePreview(campaign, data.customers || [], segment)
   const shop = (data.shops || [])[0] || { name: 'AutoGaragify' }
@@ -76,7 +85,7 @@ export async function POST(req: NextRequest) {
       dryRun: true,
       mode: preview.kind,
       ...preview,
-      providerReady: preview.kind === 'sms' ? smsConfigured() : preview.kind === 'email' ? emailConfigured() : false
+      providerReady: preview.kind === 'sms' ? smsConfigured(smsCreds) : preview.kind === 'email' ? emailConfigured(emailCreds) : false
     })
   }
 
@@ -111,7 +120,7 @@ export async function POST(req: NextRequest) {
       const result = await sendSms({
         to,
         body: `${shop.name || 'AutoGaragify'}: ${bodyText}`
-      })
+      }, smsCreds)
       if (result.sandbox) mode = 'sandbox'
       if (result.ok) {
         sent++
@@ -129,7 +138,7 @@ export async function POST(req: NextRequest) {
       subject: `${shop.name || 'AutoGaragify'} · ${campaign.name || 'Service follow-up'}`,
       html,
       text: bodyText
-    })
+    }, emailCreds)
     if (result.sandbox) mode = 'sandbox'
     if (result.ok) {
       sent++

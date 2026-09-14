@@ -4,7 +4,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEq
 const ENCODING = 'base64url'
 
 function key(): Buffer | null {
-  const raw = process.env.GARAGEOS_SECRET_KEY
+  const raw = process.env.GARAGEOS_SECRET_KEY || process.env.ENCRYPTION_KEY
   if (!raw) return null
   const buf = Buffer.from(raw, ENCODING)
   if (buf.length !== 32 && buf.length !== 24 && buf.length !== 16) {

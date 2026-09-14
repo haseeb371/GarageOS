@@ -5,6 +5,7 @@ import { currentUser } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { records, auditLog } from '@/lib/schema'
 import { accountingConfigured, accountingProvider, buildAccountingJournal, pushAccountingJournal } from '@/lib/accounting'
+import { loadProviderCredentials, resolveAccountingCreds } from '@/lib/providerCredentials'
 
 type Row = Record<string, unknown> & { id: string }
 
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
 
   const { grouped, rows } = await shopData(user.shopId)
   const shop = (grouped.shops || [])[0] || { id: user.shopId, name: 'AutoGaragify' }
+  const accountingCreds = resolveAccountingCreds(await loadProviderCredentials(user.shopId))
   const lines = buildAccountingJournal(
     grouped.invoices || [],
     grouped.payments || [],
@@ -47,12 +49,12 @@ export async function POST(req: NextRequest) {
   )
 
   if (parsed.data.dryRun) {
-    const mode = accountingProvider()
+    const mode = accountingProvider(accountingCreds)
     return NextResponse.json({
       ok: true,
       dryRun: true,
       mode,
-      configured: accountingConfigured(),
+      configured: accountingConfigured(accountingCreds),
       recordsProcessed: lines.length,
       invoices: lines.filter(line => line.type === 'Invoice').length,
       payments: lines.filter(line => line.type === 'Payment').length,
@@ -69,11 +71,11 @@ export async function POST(req: NextRequest) {
     from: parsed.data.from,
     to: parsed.data.to,
     lines
-  })
+  }, accountingCreds)
 
   const now = Date.now()
   const startedAt = new Date(now).toISOString()
-  const mode = result.mode || accountingProvider()
+  const mode = result.mode || accountingProvider(accountingCreds)
   const syncId = `SYNC-${now.toString().slice(-10)}`
   const connection =
     (grouped.integrationConnections || []).find(row => row.id === parsed.data.connectionId) ||
@@ -111,7 +113,7 @@ export async function POST(req: NextRequest) {
       const updated = {
         ...connection,
         lastSyncAt: startedAt,
-        status: result.ok ? (accountingConfigured() ? 'Connected' : connection.status) : connection.status,
+        status: result.ok ? (accountingConfigured(accountingCreds) ? 'Connected' : connection.status) : connection.status,
         notes: result.ok
           ? `Last sync: ${result.message || 'ok'}`
           : `Last sync failed: ${result.error || 'unknown error'}`

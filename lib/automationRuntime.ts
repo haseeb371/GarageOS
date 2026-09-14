@@ -1,11 +1,32 @@
 import type { Kind } from '@/lib/domain'
 import { automationEffects, releaseAutomationJobs, type AutomationContext } from '@/lib/automations'
+import { emailConfigured } from '@/lib/email'
+import { smsConfigured } from '@/lib/sms'
+import {
+  loadProviderCredentials,
+  resolveEmailCreds,
+  resolveSmsCreds,
+  type ProviderCredentials
+} from '@/lib/providerCredentials'
 
 type Row = Record<string, unknown> & { id: string }
 
+export function messagingFlagsFromCredentials(shop?: ProviderCredentials | null) {
+  return {
+    smsLive: smsConfigured(resolveSmsCreds(shop)),
+    emailLive: emailConfigured(resolveEmailCreds(shop))
+  }
+}
+
+export async function loadMessagingFlags(shopId: string) {
+  const shop = await loadProviderCredentials(shopId)
+  return messagingFlagsFromCredentials(shop)
+}
+
 export function buildAutomationContext(
   refreshed: Array<{ kind: string; data: Row }>,
-  previous?: Row | null
+  previous?: Row | null,
+  messaging?: AutomationContext['messaging']
 ): AutomationContext {
   const byKind = (kind: string) => refreshed.filter(row => row.kind === kind).map(row => row.data)
   return {
@@ -18,7 +39,8 @@ export function buildAutomationContext(
     shops: byKind('shops'),
     appointments: byKind('appointments'),
     payments: byKind('payments'),
-    automationJobs: byKind('automationJobs')
+    automationJobs: byKind('automationJobs'),
+    messaging
   }
 }
 

@@ -1,15 +1,26 @@
 export function financingConfigured() {
-  return Boolean(
-    process.env.WISETACK_PARTNER_ID?.trim() ||
-    process.env.AFFIRM_PUBLIC_API_KEY?.trim() ||
-    process.env.FINANCING_WEBHOOK_URL?.trim()
+  return (
+    Boolean(
+      process.env.WISETACK_PARTNER_ID?.trim() ||
+        process.env.AFFIRM_PUBLIC_API_KEY?.trim() ||
+        process.env.FINANCING_WEBHOOK_URL?.trim()
+    ) || financingSandboxEnabled()
   )
 }
 
-export function financingProvider(): 'wisetack' | 'affirm' | 'webhook' | 'none' {
+export function financingSandboxEnabled() {
+  const raw = String(process.env.FINANCING_MODE || 'sandbox').trim().toLowerCase()
+  if (raw === 'off' || raw === 'disabled') return false
+  // Default on so shops can demo without partner keys.
+  if (process.env.WISETACK_PARTNER_ID?.trim() || process.env.AFFIRM_PUBLIC_API_KEY?.trim()) return false
+  return raw === 'sandbox' || raw === '' || raw === 'auto'
+}
+
+export function financingProvider(): 'wisetack' | 'affirm' | 'webhook' | 'sandbox' | 'none' {
   if (process.env.WISETACK_PARTNER_ID?.trim()) return 'wisetack'
   if (process.env.AFFIRM_PUBLIC_API_KEY?.trim()) return 'affirm'
   if (process.env.FINANCING_WEBHOOK_URL?.trim()) return 'webhook'
+  if (financingSandboxEnabled()) return 'sandbox'
   return 'none'
 }
 
@@ -21,7 +32,16 @@ export function financingSetupChecklist() {
     id: 'provider',
     label: 'Financing provider selected',
     done: provider !== 'none',
-    detail: provider === 'wisetack' ? 'Wisetack configured' : provider === 'affirm' ? 'Affirm configured' : provider === 'webhook' ? 'Webhook configured' : 'Set WISETACK_PARTNER_ID, AFFIRM_PUBLIC_API_KEY, or FINANCING_WEBHOOK_URL in .env.local'
+    detail:
+      provider === 'wisetack'
+        ? 'Wisetack configured'
+        : provider === 'affirm'
+          ? 'Affirm configured'
+          : provider === 'webhook'
+            ? 'Webhook configured'
+            : provider === 'sandbox'
+              ? 'Sandbox demo financing enabled'
+              : 'Set WISETACK_PARTNER_ID, AFFIRM_PUBLIC_API_KEY, FINANCING_WEBHOOK_URL, or FINANCING_MODE=sandbox'
   })
 
   if (provider === 'wisetack') {
@@ -51,15 +71,22 @@ export type FinancingOffer = {
   monthlyEstimate: string
   aprRange: string
   terms: string[]
+  sandbox?: boolean
 }
 
-export function buildFinancingOffer(amount: number, shopName: string, invoiceId: string): FinancingOffer | null {
+export function buildFinancingOffer(
+  amount: number,
+  shopName: string,
+  invoiceId: string,
+  opts?: { baseUrl?: string; orderId?: string }
+): FinancingOffer | null {
   const provider = financingProvider()
   if (provider === 'none' || amount < 300) return null
 
   const monthly = Math.max(25, Math.round(amount / 12))
   const partnerId = process.env.WISETACK_PARTNER_ID || ''
   const affirmKey = process.env.AFFIRM_PUBLIC_API_KEY || ''
+  const base = (opts?.baseUrl || process.env.APP_URL || 'https://autogaragify.com').replace(/\/$/, '')
 
   if (provider === 'wisetack') {
     return {
@@ -81,12 +108,29 @@ export function buildFinancingOffer(amount: number, shopName: string, invoiceId:
     }
   }
 
+  if (provider === 'webhook') {
+    return {
+      provider: 'Webhook',
+      applyUrl: `${process.env.FINANCING_WEBHOOK_URL}?amount=${amount}&invoice=${encodeURIComponent(invoiceId)}&shop=${encodeURIComponent(shopName)}`,
+      monthlyEstimate: `~$${monthly}/mo`,
+      aprRange: 'Varies by provider',
+      terms: ['Custom financing partner', 'Webhook integration']
+    }
+  }
+
+  const params = new URLSearchParams({
+    amount: String(amount),
+    invoice: invoiceId || '',
+    order: opts?.orderId || '',
+    shop: shopName
+  })
   return {
-    provider: 'Webhook',
-    applyUrl: `${process.env.FINANCING_WEBHOOK_URL}?amount=${amount}&invoice=${encodeURIComponent(invoiceId)}&shop=${encodeURIComponent(shopName)}`,
+    provider: 'Sandbox financing',
+    applyUrl: `${base}/financing/demo?${params.toString()}`,
     monthlyEstimate: `~$${monthly}/mo`,
-    aprRange: 'Varies by provider',
-    terms: ['Custom financing partner', 'Webhook integration']
+    aprRange: 'Demo 0–29.9% APR',
+    terms: ['Sandbox only — not a real lender', 'Shows monthly estimate to customers', 'Swap in Wisetack/Affirm when approved'],
+    sandbox: true
   }
 }
 
@@ -99,7 +143,12 @@ export async function pushFinancingReferral(input: {
   amount: number
 }) {
   const url = process.env.FINANCING_WEBHOOK_URL?.trim()
-  if (!url) return { ok: false as const, error: 'No financing webhook configured.' }
+  if (!url) {
+    if (financingSandboxEnabled()) {
+      return { ok: true as const, sandbox: true as const, message: 'Sandbox financing interest recorded locally.' }
+    }
+    return { ok: false as const, error: 'No financing webhook configured.' }
+  }
 
   try {
     const response = await fetch(url, {
@@ -118,7 +167,10 @@ export async function pushFinancingReferral(input: {
     })
     if (!response.ok) {
       const text = await response.text().catch(() => '')
-      return { ok: false as const, error: `Financing webhook returned ${response.status}${text ? `: ${text.slice(0, 120)}` : '.'}` }
+      return {
+        ok: false as const,
+        error: `Financing webhook returned ${response.status}${text ? `: ${text.slice(0, 120)}` : '.'}`
+      }
     }
     return { ok: true as const }
   } catch (error) {

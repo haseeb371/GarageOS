@@ -1,0 +1,64 @@
+# Top US metro auto-repair queries for Places API (New).
+# One query per line. Lines starting with # are ignored.
+# Puller uses includedType=car_repair to reduce dealership/parts-store noise.
+
+auto repair shop in New York NY
+mechanic in New York NY
+auto repair shop in Los Angeles CA
+auto body shop in Los Angeles CA
+auto repair shop in Chicago IL
+brake shop in Chicago IL
+auto repair shop in Houston TX
+transmission repair in Houston TX
+auto repair shop in Phoenix AZ
+mechanic in Phoenix AZ
+auto repair shop in Philadelphia PA
+auto repair shop in San Antonio TX
+auto repair shop in San Diego CA
+auto repair shop in Dallas TX
+mechanic in Dallas TX
+auto repair shop in San Jose CA
+auto repair shop in Austin TX
+auto repair shop in Jacksonville FL
+auto repair shop in Fort Worth TX
+auto repair shop in Columbus OH
+auto repair shop in Charlotte NC
+auto repair shop in San Francisco CA
+auto repair shop in Indianapolis IN
+auto repair shop in Seattle WA
+mechanic in Seattle WA
+auto repair shop in Denver CO
+auto repair shop in Oklahoma City OK
+auto repair shop in Nashville TN
+auto repair shop in Washington DC
+auto repair shop in El Paso TX
+auto repair shop in Las Vegas NV
+auto repair shop in Boston MA
+auto repair shop in Detroit MI
+auto repair shop in Portland OR
+auto repair shop in Memphis TN
+auto repair shop in Louisville KY
+auto repair shop in Baltimore MD
+auto repair shop in Milwaukee WI
+auto repair shop in Albuquerque NM
+auto repair shop in Tucson AZ
+auto repair shop in Fresno CA
+auto repair shop in Sacramento CA
+auto repair shop in Mesa AZ
+auto repair shop in Kansas City MO
+auto repair shop in Atlanta GA
+transmission repair in Atlanta GA
+auto repair shop in Miami FL
+tire shop in Miami FL
+auto repair shop in Omaha NE
+auto repair shop in Raleigh NC
+auto repair shop in Minneapolis MN
+auto repair shop in Cleveland OH
+auto repair shop in Tampa FL
+auto repair shop in New Orleans LA
+auto repair shop in St Louis MO
+auto repair shop in Pittsburgh PA
+auto repair shop in Cincinnati OH
+auto repair shop in Orlando FL
+oil change in Orlando FL
+auto repair shop in Salt Lake City UT

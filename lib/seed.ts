@@ -2,7 +2,7 @@ export const demo: Record<string, Array<Record<string,unknown> & {id:string}>> =
  customers:[
   {id:'C-1001',name:'Amelia Carter',phone:'(555) 014-8210',email:'amelia@example.com',credit:75,tags:['Retail'],notes:'Prefers text updates'},
   {id:'C-1002',name:'Marcus Lee',phone:'(555) 019-4408',email:'marcus@example.com',credit:0,tags:['Retail'],notes:''},
-  {id:'C-1003',name:'Northline Couriers',phone:'(555) 017-1022',email:'fleet@northline.example',credit:250,tags:['Fleet'],notes:'PO required'}
+  {id:'C-1003',name:'Northline Couriers',phone:'(555) 017-1022',email:'fleet@northline.example',billingEmail:'ap@northline.example',credit:250,tags:['Fleet'],accountType:'Fleet',fleetAccount:true,poRequired:true,netTermsDays:30,notes:'PO required on every invoice'}
  ],
  vehicles:[
   {id:'V-201',customerId:'C-1001',year:2020,make:'Honda',model:'CR-V',vin:'5J6RW2H8XLA008421',plate:'8JQ2',mileage:64120,fleet:false},

@@ -1,4 +1,4 @@
-import { bigint, boolean, index, pgTable, serial, text, uniqueIndex } from 'drizzle-orm/pg-core'
+import { bigint, boolean, doublePrecision, index, integer, jsonb, pgTable, serial, text, uniqueIndex } from 'drizzle-orm/pg-core'
 
 export const records = pgTable('records', {
   id: text('id').primaryKey(),
@@ -57,6 +57,21 @@ export const estimateApprovalLinks = pgTable('estimate_approval_links', {
   index('estimate_approval_links_order_idx').on(table.shopId, table.orderId)
 ])
 
+/** Tokenized customer status + pay portal (sibling to estimate approval). */
+export const customerPortalLinks = pgTable('customer_portal_links', {
+  id: text('id').primaryKey(),
+  shopId: text('shop_id').notNull(),
+  orderId: text('order_id').notNull(),
+  customerId: text('customer_id').notNull(),
+  tokenHash: text('token_hash').notNull(),
+  createdBy: text('created_by').notNull(),
+  expiresAt: bigint('expires_at', { mode: 'number' }).notNull(),
+  createdAt: bigint('created_at', { mode: 'number' }).notNull()
+}, table => [
+  uniqueIndex('customer_portal_links_token_idx').on(table.tokenHash),
+  index('customer_portal_links_order_idx').on(table.shopId, table.orderId)
+])
+
 export const authCodes = pgTable('auth_codes', {
   id: serial('id').primaryKey(),
   email: text('email').notNull(),
@@ -68,3 +83,120 @@ export const authCodes = pgTable('auth_codes', {
 }, table => [
   index('auth_codes_email_idx').on(table.email, table.purpose)
 ])
+
+export const salesLeads = pgTable(
+  'sales_leads',
+  {
+    id: text('id').primaryKey(),
+    shopId: text('shop_id').notNull(),
+    businessName: text('business_name').notNull(),
+    phone: text('phone').notNull(),
+    phoneDigits: text('phone_digits').notNull(),
+    address: text('address').notNull().default(''),
+    website: text('website'),
+    rating: doublePrecision('rating'),
+    reviewCount: integer('review_count'),
+    placeId: text('place_id').notNull(),
+    source: text('source').notNull().default(''),
+    campaign: text('campaign').notNull().default(''),
+    status: text('status').notNull().default('new'),
+    notes: text('notes'),
+    attempts: integer('attempts').notNull().default(0),
+    retryAfter: bigint('retry_after', { mode: 'number' }),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+    lastContactedAt: bigint('last_contacted_at', { mode: 'number' }),
+    updatedAt: bigint('updated_at', { mode: 'number' }).notNull()
+  },
+  table => [
+    uniqueIndex('sales_leads_shop_place_idx').on(table.shopId, table.placeId),
+    index('sales_leads_shop_status_idx').on(table.shopId, table.status),
+    index('sales_leads_shop_source_idx').on(table.shopId, table.source),
+    index('sales_leads_shop_campaign_idx').on(table.shopId, table.campaign)
+  ]
+)
+
+export type TranscriptChunk = { role: string; text: string; at: number }
+
+export const contactLogs = pgTable(
+  'contact_logs',
+  {
+    id: serial('id').primaryKey(),
+    shopId: text('shop_id'),
+    leadId: text('lead_id'),
+    actorId: text('actor_id').notNull(),
+    outcome: text('outcome').notNull(),
+    detail: text('detail').notNull().default(''),
+    direction: text('direction').notNull().default('outbound'),
+    telnyxCallId: text('telnyx_call_id'),
+    status: text('status').notNull().default('logged'),
+    transcript: jsonb('transcript').$type<TranscriptChunk[]>().default([]),
+    recordingUrl: text('recording_url'),
+    durationSeconds: integer('duration_seconds'),
+    aiDisclosure: boolean('ai_disclosure').notNull().default(false),
+    endedAt: bigint('ended_at', { mode: 'number' }),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+    updatedAt: bigint('updated_at', { mode: 'number' })
+  },
+  table => [
+    index('contact_logs_lead_idx').on(table.shopId, table.leadId),
+    index('contact_logs_telnyx_idx').on(table.telnyxCallId)
+  ]
+)
+
+export const salesCampaigns = pgTable(
+  'sales_campaigns',
+  {
+    id: text('id').primaryKey(),
+    shopId: text('shop_id').notNull(),
+    name: text('name').notNull(),
+    status: text('status').notNull().default('draft'),
+    totalLeads: integer('total_leads').notNull().default(0),
+    dialed: integer('dialed').notNull().default(0),
+    interested: integer('interested').notNull().default(0),
+    converted: integer('converted').notNull().default(0),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+    startedAt: bigint('started_at', { mode: 'number' }),
+    endedAt: bigint('ended_at', { mode: 'number' }),
+    updatedAt: bigint('updated_at', { mode: 'number' }).notNull()
+  },
+  table => [index('sales_campaigns_shop_idx').on(table.shopId, table.status)]
+)
+
+export const dncPhones = pgTable(
+  'dnc_phones',
+  {
+    id: serial('id').primaryKey(),
+    shopId: text('shop_id').notNull(),
+    phoneDigits: text('phone_digits').notNull(),
+    reason: text('reason').notNull().default(''),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull()
+  },
+  table => [uniqueIndex('dnc_phones_shop_digits_idx').on(table.shopId, table.phoneDigits)]
+)
+
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: text('id').primaryKey(),
+    shopId: text('shop_id').notNull(),
+    type: text('type').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+    readAt: bigint('read_at', { mode: 'number' })
+  },
+  table => [index('notifications_shop_idx').on(table.shopId, table.createdAt)]
+)
+
+export const complianceViolations = pgTable(
+  'compliance_violations',
+  {
+    id: serial('id').primaryKey(),
+    shopId: text('shop_id').notNull(),
+    leadId: text('lead_id'),
+    contactLogId: integer('contact_log_id'),
+    reason: text('reason').notNull(),
+    detail: text('detail').notNull().default(''),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull()
+  },
+  table => [index('compliance_violations_shop_idx').on(table.shopId)]
+)

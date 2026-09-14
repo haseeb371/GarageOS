@@ -25,7 +25,13 @@ export async function GET(req: NextRequest) {
   }
 
   if (!financingConfigured()) {
-    return NextResponse.json({ error: 'Customer financing is not configured. Set WISETACK_PARTNER_ID, AFFIRM_PUBLIC_API_KEY, or FINANCING_WEBHOOK_URL.' }, { status: 503 })
+    return NextResponse.json(
+      {
+        error:
+          'Customer financing is not configured. Set WISETACK_PARTNER_ID, AFFIRM_PUBLIC_API_KEY, FINANCING_WEBHOOK_URL, or leave FINANCING_MODE=sandbox.'
+      },
+      { status: 503 }
+    )
   }
 
   const rows = await db.select().from(records).where(eq(records.shopId, user.shopId))
@@ -73,5 +79,12 @@ export async function POST(req: NextRequest) {
   })
 
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 })
-  return NextResponse.json({ ok: true, message: 'Financing referral sent to provider.' })
+  return NextResponse.json({
+    ok: true,
+    sandbox: 'sandbox' in result ? result.sandbox : false,
+    message:
+      'sandbox' in result && result.sandbox
+        ? result.message || 'Sandbox financing interest recorded.'
+        : 'Financing referral sent to provider.'
+  })
 }

@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { records, auditLog } from '@/lib/schema'
 import { kinds, type Kind } from '@/lib/domain'
-import { buildAutomationContext, planAutomationsForSave } from '@/lib/automationRuntime'
+import { buildAutomationContext, loadMessagingFlags, planAutomationsForSave } from '@/lib/automationRuntime'
 import { orderTotal } from '@/lib/booking'
 import { remindersFromCompletedOrder, shouldCreateReminders } from '@/lib/serviceReminders'
 import { shouldConsumeParts, consumptionEffects } from '@/lib/inventoryConsumption'
@@ -25,7 +25,7 @@ const roleWrites: Record<string, readonly string[] | '*'> = {
 }
 const roleDeletes: Record<string, readonly string[] | '*'> = {
   Owner: '*',
-  Manager: ['customers','vehicles','appointments','orders','cannedJobs','pricingRules','warranties','laborGuideEntries','maintenanceSchedules','vehicleSpecifications','inspections','inventory','inventoryTransactions','vendors','purchaseOrders','supplierQuotes','partsOrders','tires','tireServices','invoices','payments','timeEntries','assignments','campaigns','serviceReminders','reviews','capacityResources','availabilityRules','workflowAutomations','automationJobs','bookingChannels','integrationConnections','syncRuns','supportTickets','compliancePolicies','incidents','shops','integrations'],
+  Manager: ['customers','vehicles','appointments','orders','cannedJobs','pricingRules','warranties','laborGuideEntries','maintenanceSchedules','vehicleSpecifications','inspections','inventory','inventoryTransactions','vendors','purchaseOrders','supplierQuotes','partsOrders','tires','tireServices','invoices','payments','timeEntries','assignments','campaigns','serviceReminders','reviews','capacityResources','availabilityRules','workflowAutomations','automationJobs','callAgents','callLogs','bookingChannels','integrationConnections','syncRuns','supportTickets','compliancePolicies','incidents','shops','integrations'],
   Advisor: ['appointments','inspections','campaigns','serviceReminders'],
   Technician: [],
   Bookkeeper: []
@@ -136,6 +136,7 @@ export async function POST(req: NextRequest) {
   const { kind, record } = parsed.data
   if (!allowed(user.role,kind,'write')) return responseError(`${user.role} access cannot change ${kind}. Ask an owner or manager.`, 403)
   const now = Date.now()
+  const messaging = await loadMessagingFlags(user.shopId)
   try {
     await db.transaction(async tx => {
       const all = await shopRows(tx, user.shopId)
@@ -167,7 +168,7 @@ export async function POST(req: NextRequest) {
 
       const refreshed = await shopRows(tx, user.shopId)
       const automations = refreshed.filter(row => row.kind === 'workflowAutomations').map(row => row.data)
-      const automationContext = buildAutomationContext(refreshed, existing as Row | undefined)
+      const automationContext = buildAutomationContext(refreshed, existing as Row | undefined, messaging)
       for (const effect of planAutomationsForSave(kind, clean, automations, automationContext)) {
         const effectExisting = find(refreshed, effect.kind as Kind, effect.record.id)
         const effectClean = { ...effect.record, shopId: user.shopId }

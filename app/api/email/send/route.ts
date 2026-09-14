@@ -7,6 +7,7 @@ import { records } from '@/lib/schema'
 import { sendEmail } from '@/lib/email'
 import { buildInvoicePrintHtml } from '@/lib/invoiceDelivery'
 import { lowStockItems } from '@/lib/inventoryAlerts'
+import { loadProviderCredentials, resolveEmailCreds } from '@/lib/providerCredentials'
 
 type Row = Record<string, unknown> & { id: string }
 
@@ -40,17 +41,21 @@ export async function POST(req: NextRequest) {
 
   const data = await shopData(user.shopId)
   const shop = (data.shops || [])[0] || { id: user.shopId, name: 'AutoGaragify' }
+  const emailCreds = resolveEmailCreds(await loadProviderCredentials(user.shopId))
 
   if (parsed.data.type === 'test') {
     const to = parsed.data.to || user.email
     if (!to) return responseError('Sign in with an account that has an email, or pass to.')
-    const result = await sendEmail({
-      to,
-      subject: `AutoGaragify test email · ${shop.name || 'Shop'}`,
-      html: `<p>This is a live test from <strong>AutoGaragify</strong>.</p><p>Shop: ${shop.name || user.shopId}</p><p>If you received this, Resend is configured correctly.</p>`
-    })
+    const result = await sendEmail(
+      {
+        to,
+        subject: `AutoGaragify test email · ${shop.name || 'Shop'}`,
+        html: `<p>This is a live test from <strong>AutoGaragify</strong>.</p><p>Shop: ${shop.name || user.shopId}</p><p>If you received this, Resend is configured correctly.</p>`
+      },
+      emailCreds
+    )
     if (!result.ok) return responseError(result.error, result.sandbox ? 503 : 400)
-    return NextResponse.json({ ok: true, id: result.id, to, mode: 'live' })
+    return NextResponse.json({ ok: true, id: result.id, to, mode: 'live', testingMode: result.testingMode })
   }
 
   if (parsed.data.type === 'invoice') {
@@ -71,11 +76,14 @@ export async function POST(req: NextRequest) {
       payments: data.payments || []
     })
 
-    const result = await sendEmail({
-      to,
-      subject: `Invoice ${invoice.id} from ${locationShop.name || 'AutoGaragify'}`,
-      html
-    })
+    const result = await sendEmail(
+      {
+        to,
+        subject: `Invoice ${invoice.id} from ${locationShop.name || 'AutoGaragify'}`,
+        html
+      },
+      emailCreds
+    )
 
     const log = {
       id: `IT-${Date.now()}`,
@@ -111,7 +119,9 @@ export async function POST(req: NextRequest) {
 
     const recipients = [
       user.email,
-      ...(data.authUsers || []).filter(row => ['Owner', 'Manager'].includes(String(row.role))).map(row => String(row.email || '')),
+      ...(data.authUsers || [])
+        .filter(row => ['Owner', 'Manager'].includes(String(row.role)))
+        .map(row => String(row.email || '')),
       process.env.SUPPORT_EMAIL || ''
     ]
       .map(value => String(value || '').trim().toLowerCase())
@@ -124,15 +134,21 @@ export async function POST(req: NextRequest) {
       ? String((data.shops || []).find(row => row.id === parsed.data.locationId)?.name || '')
       : ''
     const lines = items
-      .map(item => `<li><strong>${item.name}</strong> (${item.sku}): ${item.onHand} on hand, reorder at ${item.reorderAt}</li>`)
+      .map(
+        item =>
+          `<li><strong>${item.name}</strong> (${item.sku}): ${item.onHand} on hand, reorder at ${item.reorderAt}</li>`
+      )
       .join('')
     const html = `<p>Low-stock alert from <strong>${shop.name || 'AutoGaragify'}</strong>${locationLabel ? ` · ${locationLabel}` : ''}.</p><ul>${lines}</ul>`
 
-    const result = await sendEmail({
-      to: unique,
-      subject: `Low stock · ${items.length} part${items.length === 1 ? '' : 's'} · ${shop.name || 'AutoGaragify'}`,
-      html
-    })
+    const result = await sendEmail(
+      {
+        to: unique,
+        subject: `Low stock · ${items.length} part${items.length === 1 ? '' : 's'} · ${shop.name || 'AutoGaragify'}`,
+        html
+      },
+      emailCreds
+    )
 
     const log = {
       id: `IT-${Date.now()}`,

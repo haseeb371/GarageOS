@@ -6,6 +6,7 @@ import { db } from '@/lib/db'
 import { records } from '@/lib/schema'
 import { sendSms, normalizePhone } from '@/lib/sms'
 import { campaignAudienceCount, campaignAudiencePreview, declinedWorkSegment, renderCampaignTemplate, simulateCampaignSend } from '@/lib/marketing'
+import { loadProviderCredentials, resolveSmsCreds } from '@/lib/providerCredentials'
 
 type Row = Record<string, unknown> & { id: string }
 
@@ -70,6 +71,7 @@ export async function POST(req: NextRequest) {
 
   const data = await shopData(user.shopId)
   const shop = (data.shops || [])[0] || { name: 'AutoGaragify' }
+  const smsCreds = resolveSmsCreds(await loadProviderCredentials(user.shopId))
 
   if (parsed.data.type === 'test') {
     const to = normalizePhone(parsed.data.to || '')
@@ -77,7 +79,7 @@ export async function POST(req: NextRequest) {
     const result = await sendSms({
       to,
       body: `AutoGaragify test SMS from ${shop.name || 'your shop'}. Twilio is connected.`
-    })
+    }, smsCreds)
     await logSmsActivity(
       user.shopId,
       result.ok
@@ -104,7 +106,7 @@ export async function POST(req: NextRequest) {
     const vehicleLabel = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : 'your vehicle'
     const body = `${shop.name || 'AutoGaragify'}: Reminder for ${customer.name || 'customer'} — ${reminder.service} is due${reminder.dueDate ? ` on ${reminder.dueDate}` : ''}${reminder.dueMileage ? ` / ${reminder.dueMileage} mi` : ''} (${vehicleLabel}). Reply or call to book.`
 
-    const result = await sendSms({ to, body })
+    const result = await sendSms({ to, body }, smsCreds)
     const stamp = new Date().toISOString()
     if (result.ok) {
       const updated = {
@@ -165,7 +167,7 @@ export async function POST(req: NextRequest) {
       }
       const to = normalizePhone(row.phone)
       const body = `${shop.name || 'AutoGaragify'}: ${renderTemplate(template, row.name)}`
-      const result = await sendSms({ to, body })
+      const result = await sendSms({ to, body }, smsCreds)
       if (result.ok) sentTo.push(to)
       else failures.push(`${row.name}: ${result.error}`)
     }

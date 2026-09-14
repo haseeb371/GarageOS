@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { records } from '@/lib/schema'
 import { decryptSecret, encryptSecret } from '@/lib/crypto'
 
-export type EmailCreds = { apiKey: string; from: string }
+export type EmailCreds = { apiKey: string; from: string; provider?: 'resend' | 'sendgrid' | 'smtp' | '' }
 export type SmsCreds = { accountSid: string; authToken: string; from: string }
 export type AccountingCreds = {
   provider: 'webhook' | 'sandbox' | ''
@@ -67,12 +67,44 @@ export function parseProviderCredentials(data: Row | null | undefined, shopId: s
   }
 }
 
-/** Shop-saved values win; otherwise fall back to server .env.local. */
+/** Shop-saved values win; otherwise fall back to server env (Resend → SendGrid → SMTP from). */
 export function resolveEmailCreds(shop?: ProviderCredentials | null): EmailCreds {
-  return {
-    apiKey: clean(shop?.email.apiKey) || clean(process.env.RESEND_API_KEY),
-    from: clean(shop?.email.from) || clean(process.env.EMAIL_FROM)
+  const shopKey = clean(shop?.email.apiKey)
+  const shopFrom = clean(shop?.email.from)
+  const fromName = clean(process.env.FROM_NAME)
+  const fromEmail = clean(process.env.FROM_EMAIL)
+  const composedFrom =
+    fromName && fromEmail ? `${fromName} <${fromEmail}>` : fromEmail || clean(process.env.EMAIL_FROM)
+
+  if (shopKey || shopFrom) {
+    const looksSendgrid = shopKey.startsWith('SG.')
+    return {
+      apiKey: shopKey || clean(process.env.RESEND_API_KEY) || clean(process.env.SENDGRID_API_KEY),
+      from: shopFrom || composedFrom,
+      provider: looksSendgrid ? 'sendgrid' : shopKey ? 'resend' : ''
+    }
   }
+
+  const resend = clean(process.env.RESEND_API_KEY)
+  const sendgrid = clean(process.env.SENDGRID_API_KEY)
+  const smtpUser = clean(process.env.SMTP_USER)
+  const smtpPass = clean(process.env.SMTP_PASS)
+
+  // Prefer team SendGrid when present; Resend remains supported.
+  if (sendgrid) {
+    return { apiKey: sendgrid, from: composedFrom || clean(process.env.EMAIL_FROM), provider: 'sendgrid' }
+  }
+  if (resend) {
+    return { apiKey: resend, from: composedFrom || clean(process.env.EMAIL_FROM), provider: 'resend' }
+  }
+  if (smtpUser && smtpPass) {
+    return {
+      apiKey: `smtp:${smtpUser}`,
+      from: composedFrom || `${fromName || 'AutoGaragify'} <${smtpUser}>`,
+      provider: 'smtp'
+    }
+  }
+  return { apiKey: '', from: composedFrom || clean(process.env.EMAIL_FROM), provider: '' }
 }
 
 export function resolveSmsCreds(shop?: ProviderCredentials | null): SmsCreds {

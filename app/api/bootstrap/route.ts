@@ -4,7 +4,7 @@ import { records, auditLog, authUsers } from '@/lib/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { currentUser } from '@/lib/auth'
 import { ensureShopDefaults } from '@/lib/ensureShopDefaults'
-import { buildAutomationContext } from '@/lib/automationRuntime'
+import { buildAutomationContext, loadMessagingFlags } from '@/lib/automationRuntime'
 import { releaseAutomationJobs } from '@/lib/automations'
 
 type Row = Record<string, unknown> & { id: string }
@@ -22,7 +22,8 @@ export async function GET() {
     const allRows = await db.select().from(records).where(eq(records.shopId, user.shopId))
     const refreshed = allRows.map(row => ({ kind: row.kind, data: JSON.parse(row.data) as Row }))
     const automations = refreshed.filter(row => row.kind === 'workflowAutomations').map(row => row.data)
-    const context = buildAutomationContext(refreshed)
+    const messaging = await loadMessagingFlags(user.shopId)
+    const context = buildAutomationContext(refreshed, null, messaging)
     const dueEffects = releaseAutomationJobs(context.automationJobs || [], automations, context)
     if (dueEffects.length) {
       const now = Date.now()

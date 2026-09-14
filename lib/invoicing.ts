@@ -19,7 +19,8 @@ export function invoiceForOrder(order: Row, existingInvoices: Row[] = []) {
     status: 'Due',
     due: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
     issuedAt: new Date().toISOString().slice(0, 10),
-    notes: `Created from repair order ${order.id}`
+    notes: `Created from repair order ${order.id}`,
+    purchaseOrder: ''
   }
 }
 

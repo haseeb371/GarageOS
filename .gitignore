@@ -12,3 +12,7 @@ data/*.db-wal
 
 .vercel
 .env*
+scripts/auto_repair_leads.csv
+scripts/failed_lookups.csv
+prompts/.active-version
+prompts/.state-blocklist

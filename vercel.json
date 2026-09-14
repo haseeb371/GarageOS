@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/dialer/tick",
+      "schedule": "0 15 * * *"
+    }
+  ]
+}

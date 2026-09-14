@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { records } from '@/lib/schema'
 import { retrieveCheckoutSession, appBaseUrl } from '@/lib/stripe'
-import { buildAutomationContext, planAutomationsForSave } from '@/lib/automationRuntime'
+import { buildAutomationContext, loadMessagingFlags, planAutomationsForSave } from '@/lib/automationRuntime'
 
 type Row = Record<string, unknown> & { id: string }
 
@@ -11,24 +11,29 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   const sessionId = req.nextUrl.searchParams.get('session_id') || ''
+  const portalToken = req.nextUrl.searchParams.get('portal') || ''
   const base = appBaseUrl()
+  const done = (query: string) =>
+    portalToken
+      ? NextResponse.redirect(`${base}/portal/${portalToken}?${query}`)
+      : NextResponse.redirect(`${base}/?section=invoices&${query}`)
   if (!sessionId) {
-    return NextResponse.redirect(`${base}/?section=invoices&payment=missing`)
+    return done('payment=missing')
   }
 
   const retrieved = await retrieveCheckoutSession(sessionId)
   if (!retrieved.ok || !retrieved.session) {
-    return NextResponse.redirect(`${base}/?section=invoices&payment=error`)
+    return done('payment=error')
   }
 
   const session = retrieved.session
   if (session.payment_status !== 'paid') {
-    return NextResponse.redirect(`${base}/?section=invoices&payment=unpaid`)
+    return done('payment=unpaid')
   }
 
   const invoiceId = session.metadata?.invoiceId || session.client_reference_id || ''
   if (!invoiceId) {
-    return NextResponse.redirect(`${base}/?section=invoices&payment=error`)
+    return done('payment=error')
   }
 
   const amount = Number(session.amount_total || 0) / 100
@@ -82,13 +87,14 @@ export async function GET(req: NextRequest) {
       const shopRows = await tx.select().from(records).where(eq(records.shopId, shopId))
       const refreshed = shopRows.map(row => ({ kind: row.kind, data: JSON.parse(row.data) as Row }))
       const automations = refreshed.filter(row => row.kind === 'workflowAutomations').map(row => row.data)
-      const baseContext = buildAutomationContext(refreshed, null)
+      const messaging = await loadMessagingFlags(shopId)
+      const baseContext = buildAutomationContext(refreshed, null, messaging)
 
       const paymentEffects = planAutomationsForSave('payments', payment, automations, baseContext)
       const invoiceEffects =
         String(updatedInvoice.status) === 'Paid'
           ? planAutomationsForSave('invoices', updatedInvoice, automations, {
-              ...buildAutomationContext(refreshed, invoice),
+              ...buildAutomationContext(refreshed, invoice, messaging),
               automationJobs: [
                 ...(baseContext.automationJobs || []),
                 ...paymentEffects.filter(e => e.kind === 'automationJobs').map(e => e.record)
@@ -112,8 +118,8 @@ export async function GET(req: NextRequest) {
       }
     })
   } catch {
-    return NextResponse.redirect(`${base}/?section=invoices&payment=error`)
+    return done('payment=error')
   }
 
-  return NextResponse.redirect(`${base}/?section=invoices&payment=success`)
+  return done('paid=1')
 }

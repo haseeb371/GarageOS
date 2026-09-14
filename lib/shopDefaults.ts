@@ -75,6 +75,50 @@ export function defaultShopRecords(shopId: string, shopName: string, now: number
       }
     },
     {
+      id: `CA-${shopId.slice(0, 8)}`,
+      kind: 'callAgents',
+      data: {
+        id: `CA-${shopId.slice(0, 8)}`,
+        name: `${shopName} booking agent`,
+        status: 'Active',
+        purpose: 'booking',
+        greeting: `Thanks for calling ${shopName}. I'm the AutoGaragify voice assistant for the shop.`,
+        salesPitch: '',
+        bookingPrompt:
+          'Tell me the vehicle, the service you need, and a preferred day. For example: oil change tomorrow morning for a 2019 Honda Civic.',
+        goodbye: `Thanks for calling ${shopName}. Someone from the shop will follow up shortly. Goodbye.`,
+        transferNumber: '',
+        allowInbound: true,
+        allowOutbound: true,
+        language: 'en-US',
+        notes: 'Shop booking line. Carrier carries PSTN; scripts are AutoGaragify.'
+      }
+    },
+    {
+      id: `CA-${shopId.slice(0, 8)}-sales`,
+      kind: 'callAgents',
+      data: {
+        id: `CA-${shopId.slice(0, 8)}-sales`,
+        name: 'AutoGaragify sales agent',
+        status: 'Active',
+        purpose: 'sales',
+        greeting:
+          'Hi, this is Alex from AutoGaragify. Thanks for taking my call — I will keep this under one minute.',
+        salesPitch:
+          'AutoGaragify is the shop operating system for independent garages. Online booking, digital inspections, repair orders, parts and inventory, invoices, SMS reminders, email, and automations — all in one place at autogaragify.com. Shops use it to stop juggling spreadsheets and expensive locked-in tools, so advisors spend more time with customers and less time on paperwork. You can run the whole front office from one login, including a built-in voice agent for booking and follow-ups.',
+        bookingPrompt:
+          'If a short live demo would help, press 1, or say a day this week that works. Press 2 if now is not a good time, and we will follow up by email.',
+        goodbye:
+          'Thanks for your time. Visit autogaragify.com anytime, or reply to our email and we will set up your shop. Have a great day.',
+        transferNumber: '',
+        allowInbound: true,
+        allowOutbound: true,
+        language: 'en-US',
+        notes:
+          'Trained to sell AutoGaragify. Captures demo interest and opens a lead ticket. Dial from Ops → Voice.'
+      }
+    },
+    {
       id: `WF-${shopId.slice(0, 8)}-2`,
       kind: 'workflowAutomations',
       data: {
@@ -166,4 +210,4 @@ export function defaultShopRecords(shopId: string, shopName: string, now: number
   ].map(entry => ({ ...entry, data: { ...entry.data, shopId, createdAt: now } }))
 }
 
-export const defaultRecordKinds = ['bookingChannels', 'availabilityRules', 'capacityResources', 'workflowAutomations', 'integrations'] as const
+export const defaultRecordKinds = ['bookingChannels', 'availabilityRules', 'capacityResources', 'workflowAutomations', 'callAgents', 'integrations'] as const
