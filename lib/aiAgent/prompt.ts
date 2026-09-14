@@ -6,24 +6,33 @@ const PROMPTS_DIR = join(process.cwd(), 'prompts')
 const ACTIVE_FILE = join(PROMPTS_DIR, '.active-version')
 
 export const OUTBOUND_GREETING =
-  'Hi — this is an automated assistant calling from AutoGaragify. Did I catch you for thirty seconds?'
+  'Hi — automated assistant from AutoGaragify. We help shops run ROs, techs, and payments in one place. Got fifteen minutes this week for a quick product demo?'
 
 export const INBOUND_GREETING =
-  "Thanks for calling AutoGaragify — I'm an automated assistant on the sales line. Are you looking for a product demo, pricing, or something else?"
+  "Thanks for calling AutoGaragify — automated assistant on the sales line. Demo, pricing, or something else?"
+
+export const CALLBACK_GREETING =
+  "Hi — calling back from AutoGaragify; we got cut off last time. Can I grab fifteen minutes on your calendar for a product demo?"
 
 export const COLD_CALL_SCRIPT_20S =
-  'Hi — this is an automated assistant calling from AutoGaragify. Did I catch you for thirty seconds? We help independent shops run repair orders, inspections, techs, and payments in one workspace. Quick question: do you run repair orders on paper, spreadsheets, or software right now?'
+  'Hi — automated assistant from AutoGaragify. We help shops run ROs, techs, and payments in one place. Got fifteen minutes this week for a quick product demo?'
 
 /** Direction lock prepended to the active prompt at call start. */
-export function directionInstructions(direction: 'inbound' | 'outbound') {
+export function directionInstructions(direction: 'inbound' | 'outbound', opts?: { callback?: boolean }) {
   if (direction === 'inbound') {
-    return `CALL DIRECTION: INBOUND. The shop called you. Use the inbound open. Never pretend you dialed them. Never say "is the owner available for a quick minute" as a cold-call opener.`
+    return `CALL DIRECTION: INBOUND. The shop called you. Use the inbound open. Ask demo/pricing, then list_demo_slots fast.`
   }
-  return `CALL DIRECTION: OUTBOUND. You dialed them. Use the outbound open only once. Never say "Thanks for calling AutoGaragify." Stay on the sales pitch and book a calendar demo.`
+  if (opts?.callback) {
+    return `CALL DIRECTION: OUTBOUND CALLBACK. You spoke before or got cut off. Use the CALLBACK open. Do NOT restart a long pitch. Within 20 seconds offer TWO demo times via list_demo_slots. Never say "Thanks for calling AutoGaragify."`
+  }
+  return `CALL DIRECTION: OUTBOUND. You dialed them. Use the FAST outbound open once. Within ~20 seconds of a live person, ask for a 15-minute demo and offer two times from list_demo_slots. Never say "Thanks for calling AutoGaragify."`
 }
 
-export function getCallSystemPrompt(direction: 'inbound' | 'outbound') {
-  return `${directionInstructions(direction)}\n\n${getSystemPrompt()}`
+export function getCallSystemPrompt(
+  direction: 'inbound' | 'outbound',
+  opts?: { callback?: boolean }
+) {
+  return `${directionInstructions(direction, opts)}\n\n${getSystemPrompt()}`
 }
 
 const FALLBACK_V1 = `You are an AutoGaragify sales voice agent for independent auto repair shops.

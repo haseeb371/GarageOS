@@ -3,8 +3,10 @@
  *
  * Usage:
  *   node scripts/test-one-call.mjs +15551234567
+ *   node scripts/test-one-call.mjs +15551234567 --callback
  *
  * Loads .env.local. Resolves lead + shop from DB when possible so /leads tracks it.
+ * Passes fast v5 instructions; uses callback greeting when lead was already contacted.
  */
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
@@ -33,10 +35,12 @@ function loadEnvFile(name) {
 loadEnvFile('.env')
 loadEnvFile('.env.local')
 
-const toRaw = process.argv[2] || ''
+const args = process.argv.slice(2)
+const forceCallback = args.includes('--callback')
+const toRaw = args.find(a => !a.startsWith('--')) || ''
 const to = toRaw.replace(/[^\d+]/g, '')
 if (!to.startsWith('+') || to.length < 11) {
-  console.error('Usage: node scripts/test-one-call.mjs +15551234567')
+  console.error('Usage: node scripts/test-one-call.mjs +15551234567 [--callback]')
   process.exit(1)
 }
 
@@ -62,12 +66,24 @@ let shopId =
   process.env.DEFAULT_SHOP_ID ||
   '76f75bda-0d92-4420-8047-756829b8e241'
 let businessName = ''
+let leadStatus = 'new'
+let attempts = 0
+
+let promptText = ''
+const promptCandidates = ['prompts/agent.v5.md', 'prompts/agent.v4.md', 'prompts/agent.v3.md']
+for (const p of promptCandidates) {
+  const full = join(process.cwd(), p)
+  if (existsSync(full)) {
+    promptText = readFileSync(full, 'utf8')
+    break
+  }
+}
 
 if (process.env.DATABASE_URL) {
   const sql = postgres(process.env.DATABASE_URL, { max: 1, prepare: false })
   try {
     const rows = await sql`
-      SELECT id, shop_id, business_name
+      SELECT id, shop_id, business_name, status, attempts
       FROM sales_leads
       WHERE phone_digits = ${digits} OR phone LIKE ${'%' + digits.slice(-10) + '%'}
       ORDER BY updated_at DESC
@@ -77,20 +93,36 @@ if (process.env.DATABASE_URL) {
       leadId = rows[0].id
       shopId = rows[0].shop_id
       businessName = rows[0].business_name
+      leadStatus = rows[0].status || 'new'
+      attempts = Number(rows[0].attempts || 0)
     }
   } finally {
     await sql.end({ timeout: 5 })
   }
 }
 
-const greeting =
-  'Hi — this is an automated assistant calling from AutoGaragify. Did I catch you for thirty seconds?'
+const isCallback =
+  forceCallback || attempts > 0 || ['contacted', 'interested'].includes(String(leadStatus))
+
+const coldGreeting =
+  'Hi — automated assistant from AutoGaragify. We help shops run ROs, techs, and payments in one place. Got fifteen minutes this week for a quick product demo?'
+const callbackGreeting =
+  'Hi — calling back from AutoGaragify; we got cut off last time. Can I grab fifteen minutes on your calendar for a product demo?'
+const greeting = isCallback ? callbackGreeting : coldGreeting
+
+const directionLock = isCallback
+  ? 'CALL DIRECTION: OUTBOUND CALLBACK. Use the CALLBACK open. Within 20 seconds offer TWO demo times via list_demo_slots. Never say Thanks for calling AutoGaragify.'
+  : 'CALL DIRECTION: OUTBOUND. Use the FAST outbound open once. Within ~20 seconds of a live person, ask for a 15-minute demo and offer two times from list_demo_slots. Never say Thanks for calling AutoGaragify.'
+
+const instructions = `${directionLock}\n\n${promptText}`
+
 const clientState = Buffer.from(
   JSON.stringify({
     leadId,
     shopId,
-    campaign: 'manual-test',
-    direction: 'outbound'
+    campaign: isCallback ? 'manual-callback' : 'manual-test',
+    direction: 'outbound',
+    callback: isCallback
   }),
   'utf8'
 ).toString('base64')
@@ -105,12 +137,13 @@ const body = {
   client_state: clientState,
   assistant: {
     id: assistantId,
-    greeting
+    greeting,
+    instructions
   }
 }
 
 console.log(`Placing test call: ${from} → ${to}${businessName ? ` (${businessName})` : ''}`)
-console.log(`Tracking lead=${leadId} shop=${shopId}`)
+console.log(`Tracking lead=${leadId} shop=${shopId} callback=${isCallback}`)
 const res = await fetch('https://api.telnyx.com/v2/calls', {
   method: 'POST',
   headers: {
@@ -140,7 +173,7 @@ if (process.env.DATABASE_URL && callControlId) {
         status, transcript, recording_url, duration_seconds, ai_disclosure, ended_at, created_at, updated_at
       ) VALUES (
         ${shopId}, ${leadId === 'TEST-CALL' ? null : leadId}, 'manual-test', 'dialing',
-        ${`Manual test call · ${to}${businessName ? ` · ${businessName}` : ''}`},
+        ${`${isCallback ? 'Callback' : 'Manual test'} · ${to}${businessName ? ` · ${businessName}` : ''}`},
         'outbound', ${callControlId}, 'dialing', ${JSON.stringify([])}::jsonb, null, null, true, null, ${now}, ${now}
       )
     `
@@ -167,6 +200,7 @@ console.log({
   from,
   leadId,
   businessName: businessName || null,
+  callback: isCallback,
   greeting,
   note: 'After hangup, refresh /leads — Recent calls + View transcript.'
 })
