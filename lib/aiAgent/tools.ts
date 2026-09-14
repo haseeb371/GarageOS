@@ -9,7 +9,7 @@ import {
   salesLeads
 } from '@/lib/schema'
 import { normalizeUsPhone } from '@/lib/leads'
-import { transferCall } from '@/lib/telnyx'
+import { transferCall, sendDtmf } from '@/lib/telnyx'
 import { markDncPlan } from '@/lib/aiAgent/toolPlans'
 import {
   assistantToolDefinitions,
@@ -80,6 +80,22 @@ export async function dispatchAgentTool(input: {
       createdAt: now,
       updatedAt: now
     })
+  }
+
+  if (input.name === 'press_digits' || input.name === 'send_dtmf') {
+    const digits = String(input.args.digits || input.args.digit || '1')
+    const callId = String(input.args.call_control_id || input.callControlId || '')
+    if (!callId) {
+      return { ok: false, message: 'Missing call_control_id to press digits' }
+    }
+    const sent = await sendDtmf(callId, digits)
+    await log(sent.ok ? 'in_progress' : 'failed', sent.ok ? `Pressed DTMF ${digits}` : sent.error)
+    return sent.ok
+      ? {
+          ok: true,
+          message: `Pressed ${digits}. Stay quiet 1–2 seconds, then listen for the next prompt or a live person.`
+        }
+      : { ok: false, message: sent.error }
   }
 
   if (input.name === 'list_demo_slots') {

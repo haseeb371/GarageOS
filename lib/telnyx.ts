@@ -54,23 +54,39 @@ export async function createAIAssistant(config?: {
   instructions?: string
 }) {
   const base = appBaseUrl()
-  const body = {
-    name: config?.name || 'AutoGaragify Sales AI',
-    model: config?.model || process.env.TELNYX_AI_MODEL?.trim() || 'Qwen/Qwen3-235B-A22B',
-    instructions: config?.instructions || getCallSystemPrompt('outbound'),
-    enabled_features: ['telephony'],
-    greeting: OUTBOUND_GREETING,
-    tools: assistantToolDefinitions(base)
+  const model = config?.model || process.env.TELNYX_AI_MODEL?.trim() || 'Qwen/Qwen3-235B-A22B'
+  const instructions = config?.instructions || getCallSystemPrompt('outbound')
+  const webhookTools = assistantToolDefinitions(base)
+  const attempts = [
+    [{ type: 'send_dtmf' }, ...webhookTools],
+    webhookTools
+  ]
+
+  let lastError = ''
+  for (const tools of attempts) {
+    const result = await telnyxFetch('/ai/assistants', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: config?.name || 'AutoGaragify Sales AI',
+        model,
+        instructions,
+        enabled_features: ['telephony'],
+        greeting: OUTBOUND_GREETING,
+        tools
+      })
+    })
+    if (result.ok) {
+      const id = String(
+        (result.data as { data?: { id?: string }; id?: string }).data?.id ||
+          (result.data as { id?: string }).id ||
+          ''
+      )
+      if (!id) return { ok: false as const, error: 'Assistant created but no id returned.' }
+      return { ok: true as const, assistantId: id, raw: result.data }
+    }
+    lastError = result.error
   }
-  const result = await telnyxFetch('/ai/assistants', { method: 'POST', body: JSON.stringify(body) })
-  if (!result.ok) return { ok: false as const, error: result.error }
-  const id = String(
-    (result.data as { data?: { id?: string }; id?: string }).data?.id ||
-      (result.data as { id?: string }).id ||
-      ''
-  )
-  if (!id) return { ok: false as const, error: 'Assistant created but no id returned.' }
-  return { ok: true as const, assistantId: id, raw: result.data }
+  return { ok: false as const, error: lastError || 'Failed to create assistant' }
 }
 
 export async function placeOutboundCall(
@@ -203,6 +219,19 @@ export async function transferCall(callControlId: string, toNumber: string) {
   })
   if (!result.ok) return { ok: false as const, error: result.error }
   return { ok: true as const }
+}
+
+/** Send keypad tones (e.g. press 1 for English on an IVR). */
+export async function sendDtmf(callControlId: string, digits: string) {
+  const cleaned = String(digits || '').replace(/[^0-9A-DwW*#]/gi, '')
+  if (!callControlId) return { ok: false as const, error: 'Missing call_control_id' }
+  if (!cleaned) return { ok: false as const, error: 'No DTMF digits provided' }
+  const result = await telnyxFetch(`/calls/${encodeURIComponent(callControlId)}/actions/send_dtmf`, {
+    method: 'POST',
+    body: JSON.stringify({ digits: cleaned, duration_millis: 250 })
+  })
+  if (!result.ok) return { ok: false as const, error: result.error }
+  return { ok: true as const, digits: cleaned }
 }
 
 /**

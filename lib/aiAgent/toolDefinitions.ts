@@ -5,6 +5,7 @@ export type AgentToolName =
   | 'transfer_to_human'
   | 'list_demo_slots'
   | 'book_demo'
+  | 'press_digits'
 
 export function assistantToolDefinitions(webhookBaseUrl: string) {
   const toolsUrl = `${webhookBaseUrl.replace(/\/$/, '')}/api/telnyx/tools`
@@ -29,6 +30,19 @@ export function assistantToolDefinitions(webhookBaseUrl: string) {
   })
 
   return [
+    tool(
+      'press_digits',
+      'Press phone keypad digits to get through an IVR menu (e.g. press 1 for English). Use when you hear "press 1", "for English", or a phone tree — do not keep talking over the menu.',
+      {
+        digits: {
+          type: 'string',
+          description: 'Digits to press, e.g. "1" or "0" for operator. Use w between tones for a short pause if needed.'
+        },
+        call_control_id: { type: 'string', description: 'Active Telnyx call_control_id' },
+        lead_id: { type: 'string', description: 'Sales lead id if known' }
+      },
+      ['digits']
+    ),
     tool(
       'list_demo_slots',
       'List open 15-minute product demo times the buyer can book on the sales calendar',
