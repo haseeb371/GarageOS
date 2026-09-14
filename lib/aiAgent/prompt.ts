@@ -23,9 +23,9 @@ export function directionInstructions(direction: 'inbound' | 'outbound', opts?: 
     return `CALL DIRECTION: INBOUND. The shop called you. Use the inbound open. Ask demo/pricing, then list_demo_slots fast.`
   }
   if (opts?.callback) {
-    return `CALL DIRECTION: OUTBOUND CALLBACK. You spoke before or got cut off. Use the CALLBACK open. Do NOT restart a long pitch. Within 20 seconds offer TWO demo times via list_demo_slots. Never say "Thanks for calling AutoGaragify."`
+    return `CALL DIRECTION: OUTBOUND CALLBACK. Use the CALLBACK open. Pitch whoever answered — do NOT ask owner/manager first. Within 20 seconds offer TWO demo times via list_demo_slots. Never say "Thanks for calling AutoGaragify."`
   }
-  return `CALL DIRECTION: OUTBOUND. You dialed them. Use the FAST outbound open once. Within ~20 seconds of a live person, ask for a 15-minute demo and offer two times from list_demo_slots. Never say "Thanks for calling AutoGaragify."`
+  return `CALL DIRECTION: OUTBOUND. You dialed them. Use the FAST outbound open once. Pitch whoever answered — do NOT ask if they are owner/manager first. Within ~20 seconds offer two times from list_demo_slots. Never say "Thanks for calling AutoGaragify."`
 }
 
 export function getCallSystemPrompt(
